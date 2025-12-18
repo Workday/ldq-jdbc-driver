@@ -1,0 +1,88 @@
+Workday Live Data Query JDBC Driver
+Copyright 2024-2026 Workday, Inc.
+
+This product is licensed under the Apache License 2.0.
+
+================================================================================
+
+This product includes software developed by third parties:
+
+--------------------------------------------------------------------------------
+Trino JDBC Driver
+--------------------------------------------------------------------------------
+Copyright Trino Software Foundation
+Licensed under the Apache License 2.0
+https://trino.io/
+https://github.com/trinodb/trino
+
+This product bundles and redistributes the Trino JDBC Driver, which is a
+distributed SQL query engine. The original source code is available at
+https://github.com/trinodb/trino
+
+--------------------------------------------------------------------------------
+Nimbus JOSE + JWT
+--------------------------------------------------------------------------------
+Copyright Connect2id Ltd.
+Licensed under the Apache License 2.0
+https://connect2id.com/products/nimbus-jose-jwt
+https://bitbucket.org/connect2id/nimbus-jose-jwt
+
+This product uses Nimbus JOSE + JWT for JSON Web Token (JWT) creation,
+signing, and validation, as well as JSON Web Encryption (JWE) and
+JSON Web Signature (JWS) support.
+
+--------------------------------------------------------------------------------
+Jackson JSON Processor
+--------------------------------------------------------------------------------
+Copyright FasterXML, LLC
+Licensed under the Apache License 2.0
+https://github.com/FasterXML/jackson
+
+This product uses Jackson for JSON serialization and deserialization,
+including the following modules:
+- jackson-core
+- jackson-databind
+- jackson-annotations
+
+--------------------------------------------------------------------------------
+Bouncy Castle Cryptography APIs
+--------------------------------------------------------------------------------
+Copyright (c) 2000-2024 The Legion of the Bouncy Castle Inc.
+Licensed under the MIT License (Bouncy Castle variant)
+https://www.bouncycastle.org/
+
+This product uses Bouncy Castle cryptographic libraries, including:
+- bcprov-jdk18on (Bouncy Castle Provider)
+- bcpkix-jdk18on (PKIX/CMS/EAC/DVCS/PKCS/TSP/OPENSSL support)
+- bcpg-jdk18on (OpenPGP/BCPG support)
+- bcutil-jdk18on (Utilities)
+
+The Bouncy Castle License is based on the MIT X Consortium license and can
+be found at: https://www.bouncycastle.org/licence.html
+
+================================================================================
+
+NOTICE FOR REDISTRIBUTED COMPONENTS
+
+This product redistributes the above components in a "fat JAR" (shadow JAR)
+with package relocation (shading) to avoid dependency conflicts:
+
+- com.fasterxml.jackson.* relocated to com.workday.ldq.jdbc.shaded.jackson.*
+- com.nimbusds.* relocated to com.workday.ldq.jdbc.shaded.nimbusds.*
+- org.bouncycastle.* relocated to com.workday.ldq.jdbc.shaded.bouncycastle.*
+
+The Trino JDBC Driver is included without relocation to maintain compatibility
+with the standard Trino JDBC interface.
+
+All original copyright notices, licenses, and attribution requirements are
+preserved in accordance with the Apache License 2.0 and MIT License terms.
+
+================================================================================
+
+For the full text of the Apache License 2.0, see the LICENSE file included
+with this distribution or visit:
+https://www.apache.org/licenses/LICENSE-2.0
+
+For the full text of the MIT License (Bouncy Castle variant), visit:
+https://www.bouncycastle.org/licence.html
+

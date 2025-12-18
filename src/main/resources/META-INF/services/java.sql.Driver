@@ -1,0 +1,5 @@
+#
+# Copyright 2024-2026 Workday, Inc. Licensed under the Apache 2.0 http://www.apache.org/licenses/LICENSE-2.0
+#
+
+com.workday.ldq.jdbc.api.LDQJdbcDriver
