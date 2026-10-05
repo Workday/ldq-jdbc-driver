@@ -7,7 +7,6 @@ package com.workday.ldq.jdbc.impl.property;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.FAILED_TO_READ_PRIVATE_KEY_FROM_FILE;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.PRIVATE_KEY_FILE_IS_TOO_LARGE;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.PRIVATE_KEY_FILE_NOT_FOUND;
-import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_LDQ_USE_CASE;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_SSL_PRIVATE_KEY;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_SSL_PRIVATE_KEY_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -134,16 +133,6 @@ public class DriverPropertyUtilTest {
             () -> DriverPropertyUtil.checkRequiredProperties(this.props));
 
         assertTrue(exception.getMessage().contains(WD_SSL_PRIVATE_KEY.getKey()));
-    }
-
-    @Test
-    void testInvalidLdqUseCase() {
-        this.props.setProperty(WD_LDQ_USE_CASE.getKey(), "Invalid");
-        final LDQJdbcDriverRuntimeException exception = assertThrows(
-            LDQJdbcDriverRuntimeException.class,
-            () -> DriverPropertyUtil.checkRequiredProperties(this.props));
-
-        assertTrue(exception.getMessage().contains(WD_LDQ_USE_CASE.getKey()));
     }
 
     @Test

@@ -1,5 +1,10 @@
 # Release Notes - LDQ JDBC Driver
 
+## Version 1.1.2
+
+### Removed
+- `wd.ldqUseCase` workload property as it is no longer needed. Workload categorization is now handled internally.
+
 ## Version 1.1.1
 
 ### Changed

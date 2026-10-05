@@ -150,19 +150,6 @@ public enum DriverProperty {
     ),
 
     /**
-     * LDQ use case type.
-     * Determines the usage pattern for Live Data Query connections.
-     */
-    WD_LDQ_USE_CASE(
-        LDQJdbcAuthnConstants.WD_LDQ_USE_CASE_KEY,
-        LDQJdbcAuthnConstants.WD_LDQ_USE_CASE_DESCRIPTION,
-        PropertyUsage.OAUTH,
-        "LDQ",
-        null,
-        String.class
-    ),
-
-    /**
      * Trino session properties.
      * Format: key1: value1, key2: value2
      * Note: keeping it for testing, will be removed once its populated downstream in co-ordinator.

@@ -7,7 +7,6 @@ package com.workday.ldq.jdbc.impl.oauth;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_AUTH_MODEL;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_CLIENT_ID;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_ISU;
-import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_LDQ_USE_CASE;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_SSL_PRIVATE_KEY;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_TOKEN_ENDPOINT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,8 +16,6 @@ import java.util.Properties;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import com.workday.ldq.jdbc.impl.property.LdqUseCase;
 
 /**
  * Unit tests for OAuth2Config class.
@@ -92,42 +89,6 @@ public class OAuth2ConfigTest {
         // Then: Values should be trimmed
         assertEquals(TEST_TOKEN_ENDPOINT, config.getTokenEndpoint());
         assertEquals(TEST_CLIENT_ID, config.getClientId());
-    }
-
-    @Test
-    public void testGetLdqUseCase_WithDefaultValue_ShouldReturnLdq() {
-        setupAllOAuthProperties();
-        // Don't set WD_LDQ_USE_CASE - should use default
-        final OAuth2Config config = new OAuth2Config(this.properties);
-        // Asserting default value
-        assertEquals(LdqUseCase.LDQ, config.getLdqUseCase());
-    }
-
-    @Test
-    public void testGetLdqUseCase_WithEtlValue_ShouldReturnEtl() {
-        setupAllOAuthProperties();
-        this.properties.setProperty(WD_LDQ_USE_CASE.getKey(), "ETL");
-        final OAuth2Config config = new OAuth2Config(this.properties);
-
-        assertEquals(LdqUseCase.ETL, config.getLdqUseCase());
-    }
-
-    @Test
-    public void testGetLdqUseCase_WithAgenticValue_ShouldReturnAgentic() {
-        setupAllOAuthProperties();
-        this.properties.setProperty(WD_LDQ_USE_CASE.getKey(), "agentic");
-        final OAuth2Config config = new OAuth2Config(this.properties);
-
-        assertEquals(LdqUseCase.AGENTIC, config.getLdqUseCase());
-    }
-
-    @Test
-    public void testGetLdqUseCase_WithInvalidValue_ShouldThrowException() {
-        setupAllOAuthProperties();
-        this.properties.setProperty(WD_LDQ_USE_CASE.getKey(), "invalid");
-
-        final OAuth2Config oAuth2Config = new OAuth2Config(this.properties);
-        assertThrows(IllegalArgumentException.class, () -> oAuth2Config.getLdqUseCase());
     }
 
     /**

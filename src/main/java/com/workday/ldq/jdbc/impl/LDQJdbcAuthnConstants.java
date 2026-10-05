@@ -50,7 +50,6 @@ public class LDQJdbcAuthnConstants {
     public static final String ACCESS_TOKEN_FIELD = "access_token";
     public static final String AUTHORIZATION_HEADER = "Authorization";
     public static final String X_TENANT_HEADER = "x-tenant";
-    public static final String X_TRINO_CLUSTER_TYPE_HEADER = "X-Trino-Cluster-Type";
     public static final String BEARER_PREFIX = "Bearer ";
     public static final String TENANT_CLAIM_NAME = "tenant";
     public static final String ACCESS_TOKEN_KEY = "token";
@@ -188,9 +187,6 @@ public class LDQJdbcAuthnConstants {
     public static final String WD_HTTP_TIMEOUT = "wd.http.timeout";
     public static final String WD_HTTP_TIMEOUT_DESCRIPTION =
         "Http request timeout in duration like 30s, 1m, 1m30s etc, default is 30s";
-    public static final String WD_LDQ_USE_CASE_KEY = "wd.ldqUseCase";
-    public static final String WD_LDQ_USE_CASE_DESCRIPTION =
-        "LDQ use case type: ldq (default), etl, or agentic";
     public static final String WD_ACCESS_TOKEN_KEY = "wd.authn.accessToken";
     public static final String WD_ACCESS_TOKEN_DESCRIPTION =
         "Pre-issued access token to use directly";

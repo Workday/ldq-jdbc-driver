@@ -14,7 +14,6 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.JDBC_WORKDAY_PREFI
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.VERSION_PATTERN;
 import static com.workday.ldq.jdbc.impl.oauth.AuthModel.getRequiredByAuthModels;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_AUTH_MODEL;
-import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_LDQ_USE_CASE;
 import static io.trino.jdbc.$internal.guava.base.MoreObjects.firstNonNull;
 import static io.trino.jdbc.$internal.guava.base.Verify.verify;
 import static java.lang.Integer.parseInt;
@@ -47,7 +46,6 @@ import com.workday.ldq.jdbc.impl.oauth.TokenManager;
 import com.workday.ldq.jdbc.impl.oauth.TrinoRetryInterceptor;
 import com.workday.ldq.jdbc.impl.property.DriverProperty;
 import com.workday.ldq.jdbc.impl.property.DriverPropertyUtil;
-import com.workday.ldq.jdbc.impl.property.LdqUseCase;
 
 /**
  * Custom Trino JDBC Driver with OAuth 2.0 authentication support.
@@ -195,12 +193,6 @@ public final class LDQJdbcDriver
                 .toArray(String[]::new);
         }
 
-        if (property.getKey().equals(WD_LDQ_USE_CASE.getKey())) {
-            propertyInfo.choices = Arrays.stream(LdqUseCase.values())
-                .map(LdqUseCase::name)
-                .toArray(String[]::new);
-        }
-
         final String[] requiredByModels = getRequiredByAuthModels(property);
         propertyInfo.required = requiredByModels.length > 0;
         final String requiredTag = propertyInfo.required ? "[REQUIRED for " + String.join(", ", requiredByModels) + "] "
@@ -244,7 +236,7 @@ public final class LDQJdbcDriver
         final ThreadContext threadContext = this.threadContext.get();
         return client.newBuilder()
             .connectionPool(this.connectionPool)
-            .addNetworkInterceptor(new TokenAuthInterceptor(threadContext.tokenMgr, threadContext.oauthConfig))
+            .addNetworkInterceptor(new TokenAuthInterceptor(threadContext.tokenMgr))
             .addInterceptor(TrinoRetryInterceptor.get())
             .build();
     }

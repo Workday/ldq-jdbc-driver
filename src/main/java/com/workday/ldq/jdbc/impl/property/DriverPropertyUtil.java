@@ -8,7 +8,6 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.DEFAULT_SSL;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.MAX_PRIVATE_KEY_FILE_SIZE_IN_BYTES;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.PRIVATE_KEY_FILE_PATH_NOT_ABSOLUTE;
 import static com.workday.ldq.jdbc.impl.oauth.OAuth2Config.AUTH_MODEL_REQUIRED_MESSAGE;
-import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_LDQ_USE_CASE;
 
 import io.trino.jdbc.$internal.client.uri.PropertyName;
 import io.trino.jdbc.$internal.guava.base.Predicate;
@@ -90,15 +89,6 @@ public final class DriverPropertyUtil {
 
         if (authModel == null) {
             throw new LDQJdbcDriverRuntimeException(AUTH_MODEL_REQUIRED_MESSAGE);
-        }
-
-        //validate ldq use case value provided
-        final String ldqUseCaseValue = props.getProperty(WD_LDQ_USE_CASE.getKey());
-        try {
-            LdqUseCase.fromString(ldqUseCaseValue);
-        }
-        catch (final IllegalArgumentException e) {
-            throw new LDQJdbcDriverRuntimeException(e.getMessage(), e);
         }
 
         if (authModel.requiresPrivateKey()) {

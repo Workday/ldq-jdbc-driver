@@ -91,9 +91,9 @@ Requires the shadow JAR to be built first (the task depends on `shadowJar`):
 ## Maven / Gradle coordinates (when published)
 
 ```gradle
-implementation("com.workday.ldq.jdbc:ldq-jdbc-driver:1.1.1")
+implementation("com.workday.ldq.jdbc:ldq-jdbc-driver:1.1.2")
 // fat:
-implementation("com.workday.ldq.jdbc:ldq-jdbc-driver:1.1.1:all")
+implementation("com.workday.ldq.jdbc:ldq-jdbc-driver:1.1.2:all")
 ```
 
 ## Usage
@@ -128,7 +128,6 @@ Used to configure the OAuth 2.0 authentication flow. Set `wd.authn.authModel` to
 | `wd.authn.authorizationEndpoint` | OAuth 2.0 authorization endpoint URL | Auth Code & Auth Code PKCE |
 | `wd.authn.redirectUrl` | Redirect URL for the authorization callback (e.g. `https://localhost:8888/callback`) | Auth Code & Auth Code PKCE |
 | `wd.authn.accessToken` | Pre-issued access token to use directly, without performing a token exchange | Access Token only |
-| `wd.ldqUseCase` | Workload category: `LDQ`, `ETL`, or `AGENTIC` (default: `LDQ`) | Optional |
 
 ### Trino JDBC properties
 

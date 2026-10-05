@@ -11,7 +11,6 @@ import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_AUTH_MODEL;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_CLIENT_ID;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_CLIENT_SECRET;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_ISU;
-import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_LDQ_USE_CASE;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_SSL_PRIVATE_KEY;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_TOKEN_ENDPOINT;
 import static com.workday.ldq.jdbc.impl.property.DriverPropertyUtil.IS_NOT_EMPTY;
@@ -26,7 +25,6 @@ import java.util.Properties;
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
 import com.workday.ldq.jdbc.impl.property.DriverProperty;
 import com.workday.ldq.jdbc.impl.property.DriverPropertyUtil;
-import com.workday.ldq.jdbc.impl.property.LdqUseCase;
 
 /**
  * Immutable OAuth2 configuration using enum-based property storage with type-safe parsing.
@@ -101,11 +99,6 @@ public final class OAuth2Config {
     public AuthModel getAuthModel() {
         final String value = get(WD_AUTH_MODEL);
         return AuthModel.fromString(value);
-    }
-
-    public LdqUseCase getLdqUseCase() {
-        final String value = get(WD_LDQ_USE_CASE);
-        return LdqUseCase.fromString(value);
     }
 
     private String get(final DriverProperty property) {

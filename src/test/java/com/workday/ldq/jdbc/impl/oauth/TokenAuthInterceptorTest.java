@@ -81,7 +81,7 @@ public class TokenAuthInterceptorTest {
         final TokenResponse tokenResponse = new TokenResponse(accessToken, null);
         when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
         // Create ArgumentCaptor to capture the Request when chain.proceed() is called
         final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
@@ -120,7 +120,7 @@ public class TokenAuthInterceptorTest {
         final TokenResponse tokenResponse = new TokenResponse(accessToken, null);
         when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
         final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
 
@@ -175,7 +175,7 @@ public class TokenAuthInterceptorTest {
                 .thenReturn(initialResponse)
                 .thenReturn(refreshedResponse);
 
-            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
 
             final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
             final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
@@ -220,8 +220,8 @@ public class TokenAuthInterceptorTest {
         final TokenResponse tokenResponseB = new TokenResponse(accessTokenB, null);
         when(mockTokenManagerB.acquireToken()).thenReturn(tokenResponseB);
 
-        final TokenAuthInterceptor interceptorA = new TokenAuthInterceptor(mockTokenManagerA, cfgA);
-        final TokenAuthInterceptor interceptorB = new TokenAuthInterceptor(mockTokenManagerB, cfgB);
+        final TokenAuthInterceptor interceptorA = new TokenAuthInterceptor(mockTokenManagerA);
+        final TokenAuthInterceptor interceptorB = new TokenAuthInterceptor(mockTokenManagerB);
 
         final Interceptor.Chain chain1 = createMockChain(RESPONSE_FUNCTION_SUCCESS);
         final Interceptor.Chain chain2 = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -277,7 +277,7 @@ public class TokenAuthInterceptorTest {
             .thenReturn(initialResponse)
             .thenReturn(refreshedResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = mock(Interceptor.Chain.class);
         when(chain.request()).thenReturn(newRequest());
         when(chain.proceed(any(Request.class)))
@@ -327,7 +327,7 @@ public class TokenAuthInterceptorTest {
             return new TokenResponse(accessToken, null);
         });
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final List<String> tokensUsed = executeConcurrentInterceptorCalls(interceptor, CONCURRENT_CALL_LIMIT);
 
         // Verify all threads got the same token
@@ -376,7 +376,7 @@ public class TokenAuthInterceptorTest {
                 return new TokenResponse(accessToken, null);
             });
 
-            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
 
             // First call to populate the cache with expired token
             executeSingleInterceptorCallWithSuccessResponse(interceptor);
@@ -611,7 +611,7 @@ public class TokenAuthInterceptorTest {
             when(mockTokenManager.acquireToken()).thenReturn(initialResponse);
             when(mockTokenManager.getTokenUsingRefreshToken(refreshToken)).thenReturn(refreshedResponse);
 
-            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+            final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
             final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
             final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
 
@@ -662,7 +662,7 @@ public class TokenAuthInterceptorTest {
 
         when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
 
         try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
@@ -690,7 +690,7 @@ public class TokenAuthInterceptorTest {
 
         when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
 
         try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
@@ -735,7 +735,7 @@ public class TokenAuthInterceptorTest {
         when(mockTokenManager.getTokenUsingRefreshToken(anyString()))
             .thenReturn(refreshedResponse);
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
 
         try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
@@ -787,7 +787,7 @@ public class TokenAuthInterceptorTest {
         when(mockTokenManager.getTokenUsingRefreshToken(anyString()))
             .thenThrow(new LDQJdbcDriverRuntimeException("Refresh token expired"));
 
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
 
         try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
@@ -809,224 +809,6 @@ public class TokenAuthInterceptorTest {
                 verify(mockTokenManager, times(2)).acquireToken(); // Initial + fallback
                 verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(anyString());
             }
-        }
-    }
-
-    // ========================================
-    // Tests for X-Trino-Cluster-Type header
-    // ========================================
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - Default LDQ use case")
-    void testClusterTypeHeader_DefaultLdq()
-        throws Exception {
-        // Arrange - Create config without explicitly setting LDQ use case (defaults to "LDQ")
-        final Properties props = newProps("clientA", "isu1");
-        // Do not set WD_LDQ_USE_CASE - it will default to "LDQ"
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp.code());
-                verify(chain, times(1)).proceed(requestCaptor.capture());
-
-                final Request capturedRequest = requestCaptor.getValue();
-                assertEquals("ldq", capturedRequest.header(LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                    "Default LDQ use case should result in 'ldq' cluster type header");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - Explicit LDQ use case")
-    void testClusterTypeHeader_ExplicitLdq()
-        throws Exception {
-        final Properties props = newProps("clientA", "isu1");
-        props.setProperty(DriverProperty.WD_LDQ_USE_CASE.getKey(), "LDQ");
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp.code());
-                verify(chain, times(1)).proceed(requestCaptor.capture());
-
-                final Request capturedRequest = requestCaptor.getValue();
-                assertEquals("ldq", capturedRequest.header(LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                    "LDQ use case should result in 'ldq' cluster type header");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - ETL use case")
-    void testClusterTypeHeader_Etl()
-        throws Exception {
-        final Properties props = newProps("clientA", "isu1");
-        props.setProperty(DriverProperty.WD_LDQ_USE_CASE.getKey(), "ETL");
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp.code());
-                verify(chain, times(1)).proceed(requestCaptor.capture());
-
-                final Request capturedRequest = requestCaptor.getValue();
-                assertEquals("etl", capturedRequest.header(LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                    "ETL use case should result in 'etl' cluster type header");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - AGENTIC use case")
-    void testClusterTypeHeader_Agentic()
-        throws Exception {
-        final Properties props = newProps("clientA", "isu1");
-        props.setProperty(DriverProperty.WD_LDQ_USE_CASE.getKey(), "AGENTIC");
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp.code());
-                verify(chain, times(1)).proceed(requestCaptor.capture());
-
-                final Request capturedRequest = requestCaptor.getValue();
-                assertEquals("agentic", capturedRequest.header(LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                    "AGENTIC use case should result in 'agentic' cluster type header");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - Case insensitive use case value")
-    void testClusterTypeHeader_CaseInsensitive()
-        throws Exception {
-        // Arrange - Use lowercase "etl" to verify case-insensitive parsing
-        final Properties props = newProps("clientA", "isu1");
-        props.setProperty(DriverProperty.WD_LDQ_USE_CASE.getKey(), "etl");
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp.code());
-                verify(chain, times(1)).proceed(requestCaptor.capture());
-
-                final Request capturedRequest = requestCaptor.getValue();
-                assertEquals("etl", capturedRequest.header(LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                    "Lowercase 'etl' should be parsed and result in 'etl' cluster type header");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("X-Trino-Cluster-Type header - Persists across multiple requests")
-    void testClusterTypeHeader_PersistsAcrossRequests()
-        throws Exception {
-        final Properties props = newProps("clientA", "isu1");
-        props.setProperty(DriverProperty.WD_LDQ_USE_CASE.getKey(), "AGENTIC");
-        final OAuth2Config cfg = new OAuth2Config(props);
-
-        final String accessToken = "test-token";
-        final TokenManager mockTokenManager = mock(TokenManager.class);
-        final BearerAccessToken token = token(accessToken, cfg.getClientId(), Duration.ofHours(1));
-        final TokenResponse tokenResponse = new TokenResponse(token, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
-
-        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager, cfg);
-        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
-        final ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-
-        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
-            org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> extractTenantFromToken(anyString()))
-                .thenReturn("test-tenant");
-
-            try (Response resp1 = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp1.code());
-            }
-            try (Response resp2 = interceptor.intercept(chain)) {
-                assertEquals(HTTP_OK, resp2.code());
-            }
-
-            verify(chain, times(2)).proceed(requestCaptor.capture());
-            final java.util.List<Request> capturedRequests = requestCaptor.getAllValues();
-
-            assertEquals("agentic", capturedRequests.get(0).header(
-                LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                "First request should have 'agentic' cluster type header");
-            assertEquals("agentic", capturedRequests.get(1).header(
-                LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER),
-                "Second request should have 'agentic' cluster type header");
         }
     }
 }

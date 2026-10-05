@@ -14,7 +14,6 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.ERROR_PARSING_JWT_
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.TENANT_CLAIM_IS_MISSING;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.TENANT_CLAIM_NAME;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.X_TENANT_HEADER;
-import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.X_TRINO_CLUSTER_TYPE_HEADER;
 import static io.trino.jdbc.$internal.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
@@ -40,7 +39,6 @@ import com.nimbusds.jwt.SignedJWT;
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
 import com.workday.ldq.jdbc.impl.oauth.token.BearerAccessToken;
 import com.workday.ldq.jdbc.impl.oauth.token.TokenResponse;
-import com.workday.ldq.jdbc.impl.property.LdqUseCase;
 
 /**
  * OkHttp interceptor that attaches and refreshes OAuth2 Bearer tokens.
@@ -57,7 +55,6 @@ public final class TokenAuthInterceptor
 
     private final TokenManager tokenManager;
     private final Duration earlyRefreshSkew;
-    private final LdqUseCase clusterType;
 
     private volatile TokenResponse cachedTokenResponse;
 
@@ -65,13 +62,11 @@ public final class TokenAuthInterceptor
      * Creates a new TokenAuthInterceptor.
      *
      * @param tokenManager TokenManager for acquiring and refreshing tokens
-     * @param config OAuth2Config containing LDQ use case configuration
      */
-    public TokenAuthInterceptor(@Nonnull final TokenManager tokenManager, @Nonnull final OAuth2Config config) {
+    public TokenAuthInterceptor(@Nonnull final TokenManager tokenManager) {
         this.tokenManager = tokenManager;
         this.earlyRefreshSkew = Duration.ofMinutes(Long.getLong(EARLY_REFRESH_SKEW_MIN_PROP,
             DEFAULT_EARLY_REFRESH_SKEW_MIN));
-        this.clusterType = config.getLdqUseCase();
     }
 
     @Override
@@ -128,7 +123,6 @@ public final class TokenAuthInterceptor
         final Request requestWithAuth = request.newBuilder()
             .header(AUTHORIZATION_HEADER, BEARER_PREFIX + tokenToUse)
             .header(X_TENANT_HEADER, tenantClaim)
-            .header(X_TRINO_CLUSTER_TYPE_HEADER, this.clusterType.toString())
             .header(TRINO_HEADERS.requestExtraCredential(), tokenCredential)
             .build();
         return chain.proceed(requestWithAuth);
