@@ -48,7 +48,7 @@ class AccessTokenTokenManagerImplTest {
         final String jwt = createJwt(TEST_SUBJECT, TEST_TENANT, TEST_EXPIRY);
         this.tokenManager = managerFor(jwt);
 
-        final TokenResponse response = this.tokenManager.acquireToken();
+        final TokenResponse response = this.tokenManager.acquireToken(null);
 
         assertEquals(jwt, response.getAccessToken().getToken());
         assertEquals(TEST_EXPIRY, response.getAccessToken().getExpiryTime());
@@ -59,7 +59,7 @@ class AccessTokenTokenManagerImplTest {
     void testAcquireTokenInvalidJwtThrows() {
         this.tokenManager = managerFor("not-a-jwt");
 
-        assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.acquireToken());
+        assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.acquireToken(null));
     }
 
     @Test
@@ -68,7 +68,7 @@ class AccessTokenTokenManagerImplTest {
         throws Exception {
         this.tokenManager = managerFor(createJwt(TEST_SUBJECT, TEST_TENANT, null));
 
-        assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.acquireToken());
+        assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.acquireToken(null));
     }
 
     @Test
@@ -78,7 +78,7 @@ class AccessTokenTokenManagerImplTest {
         this.tokenManager = managerFor(createJwt(TEST_SUBJECT, TEST_TENANT, TEST_EXPIRY));
 
         assertThrows(LDQJdbcDriverRuntimeException.class,
-            () -> this.tokenManager.getTokenUsingRefreshToken("some-refresh-token"));
+            () -> this.tokenManager.getTokenUsingRefreshToken("some-refresh-token", null));
     }
 
     private String createJwt(final String subject, final String tenant, final Date expiry)

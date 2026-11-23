@@ -27,10 +27,12 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.PARAM_STATE;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.RESPONSE_BODY_FROM_TOKEN_ENDPOINT;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.RESPONSE_TYPE_CODE;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.USER_AGENT;
+import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.WD_REQUEST_ID_HEADER;
 import static com.workday.ldq.jdbc.impl.property.DriverPropertyUtil.IS_NOT_EMPTY;
 
 import io.trino.jdbc.$internal.guava.annotations.VisibleForTesting;
 import io.trino.jdbc.$internal.jakarta.annotation.Nonnull;
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 import io.trino.jdbc.$internal.okhttp3.FormBody;
 import io.trino.jdbc.$internal.okhttp3.HttpUrl;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
@@ -98,6 +100,7 @@ class OAuth2CodeGrantClient {
      * @param clientId          OAuth 2.0 client ID
      * @param clientSecret      OAuth 2.0 client secret
      * @param redirectUri       Redirect URI (must match the one used in an authorization request)
+     * @param traceId           trace ID of the Trino query that triggered this exchange, or null if unavailable
      * @return TokenResponse containing an access token and optional refresh token
      * @throws LDQJdbcDriverRuntimeException if token exchange fails
      */
@@ -105,12 +108,13 @@ class OAuth2CodeGrantClient {
                                                       @Nonnull final String tokenEndpoint,
                                                       @Nonnull final String clientId,
                                                       @Nonnull final String clientSecret,
-                                                      @Nonnull final String redirectUri) {
+                                                      @Nonnull final String redirectUri,
+                                                      @Nullable final String traceId) {
         if (IS_NOT_EMPTY.negate().test(authorizationCode)) {
             throw new LDQJdbcDriverRuntimeException(AUTHORIZATION_CODE_CANNOT_BE_NULL);
         }
         return executeCodeExchange(() -> requestAccessTokenWithCode(authorizationCode, tokenEndpoint,
-            clientId, clientSecret, redirectUri));
+            clientId, clientSecret, redirectUri, traceId));
     }
 
     /**
@@ -120,15 +124,17 @@ class OAuth2CodeGrantClient {
      * @param tokenEndpoint Token endpoint URL
      * @param clientId      OAuth 2.0 client ID
      * @param clientSecret  OAuth 2.0 client secret
+     * @param traceId       trace ID of the Trino query that triggered this refresh, or null if unavailable
      * @return TokenResponse containing a new access token and possibly a new refresh token
      * @throws LDQJdbcDriverRuntimeException if token refresh fails
      */
     public TokenResponse getTokenUsingRefreshToken(final String refreshToken,
                                                    @Nonnull final String tokenEndpoint,
                                                    @Nonnull final String clientId,
-                                                   @Nonnull final String clientSecret) {
+                                                   @Nonnull final String clientSecret,
+                                                   @Nullable final String traceId) {
         return executeRefreshTokenExchange(refreshToken, () -> requestAccessTokenWithRefreshToken(refreshToken,
-            tokenEndpoint, clientId, clientSecret));
+            tokenEndpoint, clientId, clientSecret, traceId));
     }
 
     /**
@@ -139,6 +145,7 @@ class OAuth2CodeGrantClient {
      * @param clientId          Client ID
      * @param clientSecret      Client secret
      * @param redirectUri       Redirect URI
+     * @param traceId           trace ID of the Trino query that triggered this request, or null if unavailable
      * @return JsonNode containing an access token
      * @throws IOException if request fails
      */
@@ -147,7 +154,8 @@ class OAuth2CodeGrantClient {
                                                   @Nonnull final String tokenEndpoint,
                                                   @Nonnull final String clientId,
                                                   @Nonnull final String clientSecret,
-                                                  @Nonnull final String redirectUri)
+                                                  @Nonnull final String redirectUri,
+                                                  @Nullable final String traceId)
         throws IOException {
         final FormBody formBody = new FormBody.Builder()
             .add(GRANT_TYPE_PARAM, GRANT_TYPE_AUTHORIZATION_CODE)
@@ -157,7 +165,7 @@ class OAuth2CodeGrantClient {
             .add(PARAM_CLIENT_SECRET, clientSecret)
             .build();
 
-        return executeTokenRequest(tokenEndpoint, formBody);
+        return executeTokenRequest(tokenEndpoint, formBody, traceId);
     }
 
     /**
@@ -168,6 +176,7 @@ class OAuth2CodeGrantClient {
      * @param tokenEndpoint Token endpoint URL
      * @param clientId      OAuth 2.0 client ID
      * @param clientSecret  OAuth 2.0 client secret
+     * @param traceId       trace ID of the Trino query that triggered this request, or null if unavailable
      * @return JsonNode containing the token response
      * @throws IOException if request fails
      */
@@ -175,7 +184,8 @@ class OAuth2CodeGrantClient {
     protected JsonNode requestAccessTokenWithRefreshToken(@Nonnull final String refreshToken,
                                                           @Nonnull final String tokenEndpoint,
                                                           @Nonnull final String clientId,
-                                                          @Nonnull final String clientSecret)
+                                                          @Nonnull final String clientSecret,
+                                                          @Nullable final String traceId)
         throws IOException {
         final FormBody formBody = new FormBody.Builder()
             .add(GRANT_TYPE_PARAM, GRANT_TYPE_REFRESH_TOKEN)
@@ -184,7 +194,7 @@ class OAuth2CodeGrantClient {
             .add(PARAM_CLIENT_SECRET, clientSecret)
             .build();
 
-        return executeTokenRequest(tokenEndpoint, formBody);
+        return executeTokenRequest(tokenEndpoint, formBody, traceId);
     }
 
     /**
@@ -226,6 +236,7 @@ class OAuth2CodeGrantClient {
      * @param clientId          OAuth 2.0 client ID
      * @param redirectUri       Redirect URI (must match the one used in the authorization request)
      * @param codeVerifier      The original code_verifier whose hash was sent as code_challenge
+     * @param traceId           trace ID of the Trino query that triggered this exchange, or null if unavailable
      * @return TokenResponse containing an access token and optional refresh token
      * @throws LDQJdbcDriverRuntimeException if token exchange fails
      */
@@ -233,12 +244,13 @@ class OAuth2CodeGrantClient {
                                                                   @Nonnull final String tokenEndpoint,
                                                                   @Nonnull final String clientId,
                                                                   @Nonnull final String redirectUri,
-                                                                  @Nonnull final String codeVerifier) {
+                                                                  @Nonnull final String codeVerifier,
+                                                                  @Nullable final String traceId) {
         if (IS_NOT_EMPTY.negate().test(authorizationCode)) {
             throw new LDQJdbcDriverRuntimeException(AUTHORIZATION_CODE_CANNOT_BE_NULL);
         }
         return executeCodeExchange(() -> requestAccessTokenWithCodeVerifier(authorizationCode,
-            tokenEndpoint, clientId, redirectUri, codeVerifier));
+            tokenEndpoint, clientId, redirectUri, codeVerifier, traceId));
     }
 
     /**
@@ -248,14 +260,16 @@ class OAuth2CodeGrantClient {
      * @param refreshToken  The refresh token from a previous authorization
      * @param tokenEndpoint Token endpoint URL
      * @param clientId      OAuth 2.0 client ID
+     * @param traceId       trace ID of the Trino query that triggered this refresh, or null if unavailable
      * @return TokenResponse containing a new access token and possibly a new refresh token
      * @throws LDQJdbcDriverRuntimeException if token refresh fails
      */
     public TokenResponse getTokenUsingRefreshTokenPublicClient(@Nonnull final String refreshToken,
                                                                @Nonnull final String tokenEndpoint,
-                                                               @Nonnull final String clientId) {
+                                                               @Nonnull final String clientId,
+                                                               @Nullable final String traceId) {
         return executeRefreshTokenExchange(refreshToken,
-            () -> requestAccessTokenWithRefreshTokenPublicClient(refreshToken, tokenEndpoint, clientId));
+            () -> requestAccessTokenWithRefreshTokenPublicClient(refreshToken, tokenEndpoint, clientId, traceId));
     }
 
     /**
@@ -267,6 +281,7 @@ class OAuth2CodeGrantClient {
      * @param clientId          Client ID
      * @param redirectUri       Redirect URI
      * @param codeVerifier      PKCE code verifier
+     * @param traceId           trace ID of the Trino query that triggered this request, or null if unavailable
      * @return JsonNode containing the token response
      * @throws IOException if request fails
      */
@@ -275,7 +290,8 @@ class OAuth2CodeGrantClient {
                                                           @Nonnull final String tokenEndpoint,
                                                           @Nonnull final String clientId,
                                                           @Nonnull final String redirectUri,
-                                                          @Nonnull final String codeVerifier)
+                                                          @Nonnull final String codeVerifier,
+                                                          @Nullable final String traceId)
         throws IOException {
         final FormBody formBody = new FormBody.Builder()
             .add(GRANT_TYPE_PARAM, GRANT_TYPE_AUTHORIZATION_CODE)
@@ -285,7 +301,7 @@ class OAuth2CodeGrantClient {
             .add(PARAM_CODE_VERIFIER, codeVerifier)
             .build();
 
-        return executeTokenRequest(tokenEndpoint, formBody);
+        return executeTokenRequest(tokenEndpoint, formBody, traceId);
     }
 
     /**
@@ -294,13 +310,15 @@ class OAuth2CodeGrantClient {
      * @param refreshToken  The refresh token
      * @param tokenEndpoint Token endpoint URL
      * @param clientId      OAuth 2.0 client ID
+     * @param traceId       trace ID of the Trino query that triggered this request, or null if unavailable
      * @return JsonNode containing the token response
      * @throws IOException if request fails
      */
     @VisibleForTesting
     protected JsonNode requestAccessTokenWithRefreshTokenPublicClient(@Nonnull final String refreshToken,
                                                                       @Nonnull final String tokenEndpoint,
-                                                                      @Nonnull final String clientId)
+                                                                      @Nonnull final String clientId,
+                                                                      @Nullable final String traceId)
         throws IOException {
         final FormBody formBody = new FormBody.Builder()
             .add(GRANT_TYPE_PARAM, GRANT_TYPE_REFRESH_TOKEN)
@@ -308,7 +326,7 @@ class OAuth2CodeGrantClient {
             .add(PARAM_CLIENT_ID, clientId)
             .build();
 
-        return executeTokenRequest(tokenEndpoint, formBody);
+        return executeTokenRequest(tokenEndpoint, formBody, traceId);
     }
 
     /**
@@ -365,13 +383,17 @@ class OAuth2CodeGrantClient {
     }
 
     private JsonNode executeTokenRequest(@Nonnull final String tokenEndpoint,
-                                         @Nonnull final FormBody formBody)
+                                         @Nonnull final FormBody formBody,
+                                         @Nullable final String traceId)
         throws IOException {
-        final Request request = new Request.Builder()
+        final Request.Builder requestBuilder = new Request.Builder()
             .url(tokenEndpoint)
             .post(formBody)
-            .addHeader(USER_AGENT, LDQJdbcDriver.LDQ_JDBC_DRIVER_USER_AGENT_INFO)
-            .build();
+            .addHeader(USER_AGENT, LDQJdbcDriver.LDQ_JDBC_DRIVER_USER_AGENT_INFO);
+        if (traceId != null) {
+            requestBuilder.addHeader(WD_REQUEST_ID_HEADER, traceId);
+        }
+        final Request request = requestBuilder.build();
 
         try (Response response = this.httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {

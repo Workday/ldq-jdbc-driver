@@ -4,7 +4,6 @@
 
 package com.workday.ldq.jdbc.impl.oauth;
 
-import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.ACCESS_TOKEN_FIELD;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.ACCESS_TOKEN_REQUEST_FAILED_DUE_TO_NETWORK_ERROR;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.ASSERTION_PARAM;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.FAILED_TO_OBTAIN_ACCESS_TOKEN;
@@ -15,8 +14,10 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.OAUTH_2_JWT_GRANT_
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.OBJECT_MAPPER;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.TOKEN_URL_CANNOT_BE_NULL_OR_EMPTY;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.USER_AGENT;
+import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.WD_REQUEST_ID_HEADER;
 import static com.workday.ldq.jdbc.impl.property.DriverPropertyUtil.IS_NOT_EMPTY;
 
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 import io.trino.jdbc.$internal.okhttp3.FormBody;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
 import io.trino.jdbc.$internal.okhttp3.Request;
@@ -54,10 +55,13 @@ class OAuth2JwtTokenClient {
      *
      * @param jwtAssertion The JWT assertion for the bearer grant
      * @param tokenUrl     The OAuth 2.0 token endpoint URL
+     * @param traceId      trace ID of the Trino query that triggered this request, or null if unavailable
      * @return TokenResponse containing an access token (refresh token will be null for JWT Bearer)
      * @throws LDQJdbcDriverRuntimeException if the request fails
      */
-    public TokenResponse requestToken(final String jwtAssertion, final String tokenUrl) {
+    public TokenResponse requestToken(final String jwtAssertion,
+                                      final String tokenUrl,
+                                      @Nullable final String traceId) {
         // Input validation
         if (IS_NOT_EMPTY.negate().test(jwtAssertion)) {
             throw new LDQJdbcDriverRuntimeException(JWT_ASSERTION_CANNOT_BE_NULL_OR_EMPTY);
@@ -66,7 +70,7 @@ class OAuth2JwtTokenClient {
             throw new LDQJdbcDriverRuntimeException(TOKEN_URL_CANNOT_BE_NULL_OR_EMPTY);
         }
 
-        return fetchAccessToken(() -> requestTokenResponseNode(jwtAssertion, tokenUrl));
+        return fetchAccessToken(() -> requestTokenResponseNode(jwtAssertion, tokenUrl, traceId));
     }
 
     /**
@@ -101,11 +105,14 @@ class OAuth2JwtTokenClient {
      *
      * @param jwtAssertion The JWT assertion for the bearer grant
      * @param tokenUrl     The OAuth 2.0 token endpoint URL
+     * @param traceId      trace ID of the Trino query that triggered this request, or null if unavailable
      * @return The JsonNode containing the full token response
      * @throws IOException                       if the request fails due to a network error
      * @throws LDQJdbcDriverRuntimeException if the request fails
      */
-    protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+    protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                final String tokenUrl,
+                                                @Nullable final String traceId)
         throws IOException {
         // Build form data using OkHttp's FormBody
         final FormBody formBody = new FormBody.Builder()
@@ -113,11 +120,14 @@ class OAuth2JwtTokenClient {
             .add(ASSERTION_PARAM, jwtAssertion)
             .build();
 
-        final Request request = new Request.Builder()
+        final Request.Builder requestBuilder = new Request.Builder()
             .url(tokenUrl)
             .post(formBody)
-            .addHeader(USER_AGENT, LDQJdbcDriver.LDQ_JDBC_DRIVER_USER_AGENT_INFO)
-            .build();
+            .addHeader(USER_AGENT, LDQJdbcDriver.LDQ_JDBC_DRIVER_USER_AGENT_INFO);
+        if (traceId != null) {
+            requestBuilder.addHeader(WD_REQUEST_ID_HEADER, traceId);
+        }
+        final Request request = requestBuilder.build();
 
         try (Response response = this.httpClient.newCall(request).execute()) {
 
@@ -134,24 +144,4 @@ class OAuth2JwtTokenClient {
             return OBJECT_MAPPER.readTree(body.string());
         }
     }
-
-    /**
-     * Makes an HTTP request to the OAuth 2.0 token endpoint and returns the access token node.
-     * <p>
-     * This method is maintained for backward compatibility.
-     *
-     * @param jwtAssertion The JWT assertion for the bearer grant
-     * @param tokenUrl     The OAuth 2.0 token endpoint URL
-     * @return The JsonNode containing the access token field, or null if not found
-     * @throws IOException                       if the request fails due to a network error
-     * @throws LDQJdbcDriverRuntimeException if the request fails
-     * @deprecated Use {@link #requestTokenResponseNode(String, String)} instead
-     */
-    @Deprecated
-    protected JsonNode requestAccessTokenNode(final String jwtAssertion, final String tokenUrl)
-        throws IOException {
-        final JsonNode jsonResponse = requestTokenResponseNode(jwtAssertion, tokenUrl);
-        return jsonResponse != null ? jsonResponse.get(ACCESS_TOKEN_FIELD) : null;
-    }
-
 }

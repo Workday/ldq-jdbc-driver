@@ -1,5 +1,13 @@
 # Release Notes - LDQ JDBC Driver
 
+## Version 1.2.0
+
+### Added
+- A trace ID (`LDQ\|<uuid>`) is added to every request of a query, and to the token requests it triggers, so a single query execution can be followed end to end. The ID is logged by the driver. Set `wd.traceId.enabled=false` to turn it off.
+
+### Changed
+- `TokenAuthInterceptor` is now registered as an application interceptor, after the trace-ID interceptor.
+
 ## Version 1.1.2
 
 ### Removed

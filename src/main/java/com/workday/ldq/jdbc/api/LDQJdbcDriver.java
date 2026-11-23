@@ -14,6 +14,7 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.JDBC_WORKDAY_PREFI
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.VERSION_PATTERN;
 import static com.workday.ldq.jdbc.impl.oauth.AuthModel.getRequiredByAuthModels;
 import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_AUTH_MODEL;
+import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_TRACE_ID_ENABLED;
 import static io.trino.jdbc.$internal.guava.base.MoreObjects.firstNonNull;
 import static io.trino.jdbc.$internal.guava.base.Verify.verify;
 import static java.lang.Integer.parseInt;
@@ -37,6 +38,7 @@ import java.util.regex.Matcher;
 
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
 import com.workday.ldq.jdbc.impl.LDQJdbcConnection;
+import com.workday.ldq.jdbc.impl.TraceIDInterceptor;
 import com.workday.ldq.jdbc.impl.oauth.AuthModel;
 import com.workday.ldq.jdbc.impl.oauth.OAuth2Config;
 import com.workday.ldq.jdbc.impl.oauth.OAuth2HttpClientFactory;
@@ -120,7 +122,7 @@ public final class LDQJdbcDriver
 
         // Store TokenManager and OAuth2Config in thread locals to be used in {@link #wrapClient} method
         // which is always called on the same thread before the connection is created.
-        this.threadContext.set(new ThreadContext(tokenManager, config));
+        this.threadContext.set(new ThreadContext(tokenManager, config, isTraceIdEnabled(info)));
         boolean connectionSuccess = false;
         try {
             final Properties driverProperties = DriverPropertyUtil.setTrinoDriverProperties(info);
@@ -213,9 +215,22 @@ public final class LDQJdbcDriver
         else if (prop.isUsedForOAuth()) {
             return "[OAuth] ";
         }
+        else if (prop.isUsedForDriver()) {
+            return "[Driver] ";
+        }
         else {
             return "[Trino] ";
         }
+    }
+
+    /**
+     * Reads {@link DriverProperty#WD_TRACE_ID_ENABLED}. Only "false" (ignoring case and surrounding
+     * whitespace) disables trace ID propagation. Any other value, including unset, blank or a typo, leaves it on.
+     */
+    @VisibleForTesting
+    static boolean isTraceIdEnabled(final Properties info) {
+        final String value = info.getProperty(WD_TRACE_ID_ENABLED.getKey());
+        return value == null || !"false".equalsIgnoreCase(value.trim());
     }
 
     @Override
@@ -234,11 +249,32 @@ public final class LDQJdbcDriver
     @Override
     protected Call.Factory wrapClient(final OkHttpClient client) {
         final ThreadContext threadContext = this.threadContext.get();
-        return client.newBuilder()
-            .connectionPool(this.connectionPool)
-            .addNetworkInterceptor(new TokenAuthInterceptor(threadContext.tokenMgr))
-            .addInterceptor(TrinoRetryInterceptor.get())
+        return addInterceptors(client.newBuilder().connectionPool(this.connectionPool), threadContext.tokenMgr,
+            threadContext.traceIdEnabled)
             .build();
+    }
+
+    /**
+     * Registers the driver's interceptors. TraceIDInterceptor must be registered before TokenAuthInterceptor:
+     * it creates the trace ID and puts it on the request header, and TokenAuthInterceptor reads that header back
+     * so that token acquisitions carry the same ID as the query that triggered them. If the order is reversed,
+     * token requests silently go out without a trace ID. The order is pinned by LDQJdbcDriverTest.
+     * <p>
+     * When {@code traceIdEnabled} is false (see {@link DriverProperty#WD_TRACE_ID_ENABLED}), no trace ID is
+     * created, so requests and token calls go out without one.
+     */
+    @VisibleForTesting
+    static OkHttpClient.Builder addInterceptors(final OkHttpClient.Builder builder,
+                                                final TokenManager tokenManager,
+                                                final boolean traceIdEnabled) {
+        // Application interceptors, not network interceptors: TokenAuthInterceptor may call chain.proceed() again
+        // on a 401, which OkHttp forbids for network interceptors ("must call proceed() exactly once").
+        if (traceIdEnabled) {
+            builder.addInterceptor(new TraceIDInterceptor());
+        }
+        return builder
+            .addInterceptor(TrinoRetryInterceptor.get())
+            .addInterceptor(new TokenAuthInterceptor(tokenManager));
     }
 
     /**
@@ -261,10 +297,14 @@ public final class LDQJdbcDriver
 
         final TokenManager tokenMgr;
         final OAuth2Config oauthConfig;
+        final boolean traceIdEnabled;
 
-        ThreadContext(final @Nonnull TokenManager tokenManager, final @Nonnull OAuth2Config oauth2Config) {
+        ThreadContext(final @Nonnull TokenManager tokenManager,
+                      final @Nonnull OAuth2Config oauth2Config,
+                      final boolean traceIdEnabled) {
             this.tokenMgr = tokenManager;
             this.oauthConfig = oauth2Config;
+            this.traceIdEnabled = traceIdEnabled;
         }
 
         @Override

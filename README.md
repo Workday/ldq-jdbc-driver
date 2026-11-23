@@ -129,6 +129,12 @@ Used to configure the OAuth 2.0 authentication flow. Set `wd.authn.authModel` to
 | `wd.authn.redirectUrl` | Redirect URL for the authorization callback (e.g. `https://localhost:8888/callback`) | Auth Code & Auth Code PKCE |
 | `wd.authn.accessToken` | Pre-issued access token to use directly, without performing a token exchange | Access Token only |
 
+### Tracing properties
+
+| Property | Description | Required |
+|----------|-------------|----------|
+| `wd.traceId.enabled` | Tag every request of a query, including any token requests it triggers, with an `LDQ\|<uuid>` trace ID (`true` or `false`, default: `true`) | Optional |
+
 ### Trino JDBC properties
 
 Optional. Passed through to the underlying Trino JDBC driver after OAuth completes.

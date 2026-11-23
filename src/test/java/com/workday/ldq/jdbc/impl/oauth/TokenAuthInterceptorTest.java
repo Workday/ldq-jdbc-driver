@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -79,7 +81,7 @@ public class TokenAuthInterceptorTest {
         final TokenManager mockTokenManager = mock(TokenManager.class);
         final BearerAccessToken accessToken = token(newlyIssuedToken, cfg.getClientId(), Duration.ofSeconds(300));
         final TokenResponse tokenResponse = new TokenResponse(accessToken, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
+        when(mockTokenManager.acquireToken(any())).thenReturn(tokenResponse);
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -105,7 +107,7 @@ public class TokenAuthInterceptorTest {
                 capturedRequest.header(
                     ProtocolHeaders.TRINO_HEADERS.requestExtraCredential()));
 
-            verify(mockTokenManager, times(1)).acquireToken();
+            verify(mockTokenManager, times(1)).acquireToken(any());
         }
     }
 
@@ -118,7 +120,7 @@ public class TokenAuthInterceptorTest {
         final TokenManager mockTokenManager = mock(TokenManager.class);
         final BearerAccessToken accessToken = token(accessTokenIssued, cfg.getClientId(), Duration.ofSeconds(600));
         final TokenResponse tokenResponse = new TokenResponse(accessToken, null);
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
+        when(mockTokenManager.acquireToken(any())).thenReturn(tokenResponse);
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -138,7 +140,7 @@ public class TokenAuthInterceptorTest {
             }
 
             verify(chain, times(3)).proceed(requestCaptor.capture());
-            verify(mockTokenManager, times(1)).acquireToken(); // Should only call once
+            verify(mockTokenManager, times(1)).acquireToken(any()); // Should only call once
 
             final List<Request> capturedRequest = requestCaptor.getAllValues();
             for (final Request req : capturedRequest) {
@@ -171,7 +173,7 @@ public class TokenAuthInterceptorTest {
             final BearerAccessToken longToken = token(refreshedToken, cfg.getClientId(), Duration.ofSeconds(600));
             final TokenResponse refreshedResponse = new TokenResponse(longToken, null);
 
-            when(mockTokenManager.acquireToken())
+            when(mockTokenManager.acquireToken(any()))
                 .thenReturn(initialResponse)
                 .thenReturn(refreshedResponse);
 
@@ -190,7 +192,7 @@ public class TokenAuthInterceptorTest {
                     assertEquals(HTTP_OK, resp2.code());
                 }
                 verify(chain, times(2)).proceed(requestCaptor.capture());
-                verify(mockTokenManager, times(2)).acquireToken(); // Initial + refresh
+                verify(mockTokenManager, times(2)).acquireToken(any()); // Initial + refresh
 
                 final List<Request> capturedRequest = requestCaptor.getAllValues();
                 assertEquals(BEARER_PREFIX + initialToken, capturedRequest.get(0).header(AUTHORIZATION_HEADER));
@@ -213,12 +215,12 @@ public class TokenAuthInterceptorTest {
         final TokenManager mockTokenManagerA = mock(TokenManager.class);
         final BearerAccessToken accessTokenA = token(clientAToken, cfgA.getClientId(), Duration.ofSeconds(600));
         final TokenResponse tokenResponseA = new TokenResponse(accessTokenA, null);
-        when(mockTokenManagerA.acquireToken()).thenReturn(tokenResponseA);
+        when(mockTokenManagerA.acquireToken(any())).thenReturn(tokenResponseA);
 
         final TokenManager mockTokenManagerB = mock(TokenManager.class);
         final BearerAccessToken accessTokenB = token(clientBToken, cfgB.getClientId(), Duration.ofSeconds(600));
         final TokenResponse tokenResponseB = new TokenResponse(accessTokenB, null);
-        when(mockTokenManagerB.acquireToken()).thenReturn(tokenResponseB);
+        when(mockTokenManagerB.acquireToken(any())).thenReturn(tokenResponseB);
 
         final TokenAuthInterceptor interceptorA = new TokenAuthInterceptor(mockTokenManagerA);
         final TokenAuthInterceptor interceptorB = new TokenAuthInterceptor(mockTokenManagerB);
@@ -250,8 +252,8 @@ public class TokenAuthInterceptorTest {
                 requestCaptor.getAllValues().get(1).header(AUTHORIZATION_HEADER));
             assertEquals(tenantIdTwo, requestCaptor.getAllValues().get(1).header(X_TENANT_HEADER));
 
-            verify(mockTokenManagerA, times(1)).acquireToken();
-            verify(mockTokenManagerB, times(1)).acquireToken();
+            verify(mockTokenManagerA, times(1)).acquireToken(any());
+            verify(mockTokenManagerB, times(1)).acquireToken(any());
         }
     }
 
@@ -273,7 +275,7 @@ public class TokenAuthInterceptorTest {
             600));
         final TokenResponse refreshedResponse = new TokenResponse(refreshedAccessToken, null);
 
-        when(mockTokenManager.acquireToken())
+        when(mockTokenManager.acquireToken(any()))
             .thenReturn(initialResponse)
             .thenReturn(refreshedResponse);
 
@@ -299,7 +301,7 @@ public class TokenAuthInterceptorTest {
                 assertEquals(HTTP_OK, resp.code());
             }
             verify(chain, times(2)).proceed(requestCaptor.capture());
-            verify(mockTokenManager, times(2)).acquireToken(); // Initial + refresh after 401
+            verify(mockTokenManager, times(2)).acquireToken(any()); // Initial + refresh after 401
             assertEquals(BEARER_PREFIX + initialToken,
                 requestCaptor.getAllValues().get(0).header(AUTHORIZATION_HEADER));
             assertEquals(BEARER_PREFIX + refreshedToken,
@@ -319,7 +321,7 @@ public class TokenAuthInterceptorTest {
         final AtomicInteger tokenFetchCount = new AtomicInteger();
 
         final TokenManager mockTokenManager = mock(TokenManager.class);
-        when(mockTokenManager.acquireToken()).thenAnswer(invocation -> {
+        when(mockTokenManager.acquireToken(any())).thenAnswer(invocation -> {
             // check the number of times the supplier is called for token. Should only be called once
             tokenFetchCount.incrementAndGet();
             simulateRandomTokenFetch();
@@ -355,7 +357,7 @@ public class TokenAuthInterceptorTest {
             final AtomicInteger tokenFetchCount = new AtomicInteger();
 
             final TokenManager mockTokenManager = mock(TokenManager.class);
-            when(mockTokenManager.acquireToken()).thenAnswer(invocation -> {
+            when(mockTokenManager.acquireToken(any())).thenAnswer(invocation -> {
                 final int callNumber = tokenFetchCount.getAndIncrement();
                 simulateRandomTokenFetch();
 
@@ -398,6 +400,54 @@ public class TokenAuthInterceptorTest {
         finally {
             System.clearProperty(EARLY_REFRESH_SKEW_MIN_PROP);
         }
+    }
+
+    @Test
+    @DisplayName("Trace ID header on the incoming request is forwarded to the token manager")
+    void traceIdFromRequestHeaderIsPassedToTokenManager()
+        throws Exception {
+        final String traceId = "11111111-2222-3333-4444-555555555555";
+        final TokenManager mockTokenManager = mock(TokenManager.class);
+        final BearerAccessToken accessToken = token("trace-token", "clientA", Duration.ofSeconds(300));
+        when(mockTokenManager.acquireToken(any())).thenReturn(new TokenResponse(accessToken, null));
+
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
+        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
+        when(chain.request()).thenReturn(newRequest().newBuilder()
+            .header(ProtocolHeaders.TRINO_HEADERS.requestTraceToken(), traceId)
+            .build());
+
+        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
+            org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            mockedStatic.when(() -> extractTenantFromToken(anyString())).thenReturn("tenant-id");
+            try (Response resp = interceptor.intercept(chain)) {
+                assertEquals(HTTP_OK, resp.code());
+            }
+        }
+
+        verify(mockTokenManager, times(1)).acquireToken(eq(traceId));
+    }
+
+    @Test
+    @DisplayName("Missing trace ID header passes null to the token manager and does not fail the request")
+    void missingTraceIdIsPassedAsNullToTokenManager()
+        throws Exception {
+        final TokenManager mockTokenManager = mock(TokenManager.class);
+        final BearerAccessToken accessToken = token("no-trace-token", "clientA", Duration.ofSeconds(300));
+        when(mockTokenManager.acquireToken(any())).thenReturn(new TokenResponse(accessToken, null));
+
+        final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
+        final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
+
+        try (MockedStatic<TokenAuthInterceptor> mockedStatic = mockStatic(TokenAuthInterceptor.class,
+            org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            mockedStatic.when(() -> extractTenantFromToken(anyString())).thenReturn("tenant-id");
+            try (Response resp = interceptor.intercept(chain)) {
+                assertEquals(HTTP_OK, resp.code());
+            }
+        }
+
+        verify(mockTokenManager, times(1)).acquireToken(isNull());
     }
 
     @Test
@@ -600,7 +650,7 @@ public class TokenAuthInterceptorTest {
 
             final TokenManager mockTokenManager = mock(TokenManager.class);
 
-            // Initial token expires in 5 seconds — immediately near-expiry under 60-min skew
+            // Initial token expires in 5 seconds -- immediately near-expiry under 60-min skew
             final BearerAccessToken shortLivedToken = token(initialToken, cfg.getClientId(), Duration.ofSeconds(5));
             final TokenResponse initialResponse = new TokenResponse(shortLivedToken, refreshToken);
 
@@ -608,8 +658,8 @@ public class TokenAuthInterceptorTest {
             final BearerAccessToken longLivedToken = token(refreshedToken, cfg.getClientId(), Duration.ofHours(1));
             final TokenResponse refreshedResponse = new TokenResponse(longLivedToken, "new-refresh-token");
 
-            when(mockTokenManager.acquireToken()).thenReturn(initialResponse);
-            when(mockTokenManager.getTokenUsingRefreshToken(refreshToken)).thenReturn(refreshedResponse);
+            when(mockTokenManager.acquireToken(any())).thenReturn(initialResponse);
+            when(mockTokenManager.getTokenUsingRefreshToken(eq(refreshToken), any())).thenReturn(refreshedResponse);
 
             final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
             final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -631,8 +681,8 @@ public class TokenAuthInterceptorTest {
                 }
 
                 verify(chain, times(2)).proceed(requestCaptor.capture());
-                verify(mockTokenManager, times(1)).acquireToken();
-                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(refreshToken);
+                verify(mockTokenManager, times(1)).acquireToken(any());
+                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(eq(refreshToken), any());
 
                 final List<Request> capturedRequests = requestCaptor.getAllValues();
                 assertEquals(BEARER_PREFIX + initialToken, capturedRequests.get(0).header(AUTHORIZATION_HEADER),
@@ -660,7 +710,7 @@ public class TokenAuthInterceptorTest {
         final BearerAccessToken accessToken = token(newToken, cfg.getClientId(), Duration.ofHours(1));
         final TokenResponse tokenResponse = new TokenResponse(accessToken, "refresh-token");
 
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
+        when(mockTokenManager.acquireToken(any())).thenReturn(tokenResponse);
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -672,8 +722,8 @@ public class TokenAuthInterceptorTest {
 
             try (Response resp = interceptor.intercept(chain)) {
                 assertEquals(HTTP_OK, resp.code());
-                verify(mockTokenManager, times(1)).acquireToken();
-                verify(mockTokenManager, times(0)).getTokenUsingRefreshToken(anyString());
+                verify(mockTokenManager, times(1)).acquireToken(any());
+                verify(mockTokenManager, times(0)).getTokenUsingRefreshToken(anyString(), any());
             }
         }
     }
@@ -688,7 +738,7 @@ public class TokenAuthInterceptorTest {
         final BearerAccessToken accessToken = token(validToken, cfg.getClientId(), Duration.ofHours(1));
         final TokenResponse tokenResponse = new TokenResponse(accessToken, "refresh-token");
 
-        when(mockTokenManager.acquireToken()).thenReturn(tokenResponse);
+        when(mockTokenManager.acquireToken(any())).thenReturn(tokenResponse);
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
         final Interceptor.Chain chain = createMockChain(RESPONSE_FUNCTION_SUCCESS);
@@ -706,8 +756,8 @@ public class TokenAuthInterceptorTest {
             // Second call should reuse cached token
             try (Response resp2 = interceptor.intercept(chain)) {
                 assertEquals(HTTP_OK, resp2.code());
-                verify(mockTokenManager, times(1)).acquireToken(); // Only called once
-                verify(mockTokenManager, times(0)).getTokenUsingRefreshToken(anyString());
+                verify(mockTokenManager, times(1)).acquireToken(any()); // Only called once
+                verify(mockTokenManager, times(0)).getTokenUsingRefreshToken(anyString(), any());
             }
         }
     }
@@ -731,8 +781,8 @@ public class TokenAuthInterceptorTest {
         final BearerAccessToken refreshedAccessToken = token(refreshedToken, cfg.getClientId(), Duration.ofHours(1));
         final TokenResponse refreshedResponse = new TokenResponse(refreshedAccessToken, "new-refresh-token");
 
-        when(mockTokenManager.acquireToken()).thenReturn(initialResponse);
-        when(mockTokenManager.getTokenUsingRefreshToken(anyString()))
+        when(mockTokenManager.acquireToken(any())).thenReturn(initialResponse);
+        when(mockTokenManager.getTokenUsingRefreshToken(anyString(), any()))
             .thenReturn(refreshedResponse);
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
@@ -754,8 +804,8 @@ public class TokenAuthInterceptorTest {
             // Second call should use refresh token
             try (Response resp2 = interceptor.intercept(chain)) {
                 assertEquals(HTTP_OK, resp2.code());
-                verify(mockTokenManager, times(1)).acquireToken();
-                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(anyString());
+                verify(mockTokenManager, times(1)).acquireToken(any());
+                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(anyString(), any());
             }
         }
     }
@@ -779,12 +829,12 @@ public class TokenAuthInterceptorTest {
         final BearerAccessToken newAccessToken = token(newToken, cfg.getClientId(), Duration.ofHours(1));
         final TokenResponse newResponse = new TokenResponse(newAccessToken, "new-refresh-token");
 
-        when(mockTokenManager.acquireToken())
+        when(mockTokenManager.acquireToken(any()))
             .thenReturn(initialResponse)  // First call
             .thenReturn(newResponse);      // Fallback call
 
         // Refresh token fails
-        when(mockTokenManager.getTokenUsingRefreshToken(anyString()))
+        when(mockTokenManager.getTokenUsingRefreshToken(anyString(), any()))
             .thenThrow(new LDQJdbcDriverRuntimeException("Refresh token expired"));
 
         final TokenAuthInterceptor interceptor = new TokenAuthInterceptor(mockTokenManager);
@@ -806,8 +856,8 @@ public class TokenAuthInterceptorTest {
             //  Second call should try refresh token, fail, then fall back to acquireToken
             try (Response resp2 = interceptor.intercept(chain)) {
                 assertEquals(HTTP_OK, resp2.code());
-                verify(mockTokenManager, times(2)).acquireToken(); // Initial + fallback
-                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(anyString());
+                verify(mockTokenManager, times(2)).acquireToken(any()); // Initial + fallback
+                verify(mockTokenManager, times(1)).getTokenUsingRefreshToken(anyString(), any());
             }
         }
     }

@@ -6,26 +6,40 @@ package com.workday.ldq.jdbc.api;
 
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.JDBC_TRINO_PREFIX;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.JDBC_WORKDAY_PREFIX;
+import static com.workday.ldq.jdbc.impl.property.DriverProperty.WD_TRACE_ID_ENABLED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+
+import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
 
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
+import com.workday.ldq.jdbc.impl.TraceIDInterceptor;
+import com.workday.ldq.jdbc.impl.oauth.TokenAuthInterceptor;
+import com.workday.ldq.jdbc.impl.oauth.TokenManager;
 
 /**
  * Unit tests for LDQJdbcDriver.
@@ -71,6 +85,80 @@ public class LDQJdbcDriverTest {
         throws SQLException {
         final boolean result = this.driver.acceptsURL(inputUrl);
         assertEquals(expectedResult, result, description);
+    }
+
+    @Test
+    @DisplayName("TraceIDInterceptor is registered before TokenAuthInterceptor")
+    public void traceIdInterceptorPrecedesTokenAuthInterceptor() {
+        final OkHttpClient client = LDQJdbcDriver
+            .addInterceptors(new OkHttpClient.Builder(), mock(TokenManager.class), true)
+            .build();
+
+        final List<Class<?>> order = client.interceptors().stream()
+            .<Class<?>>map(Object::getClass)
+            .collect(Collectors.toList());
+
+        assertTrue(order.contains(TraceIDInterceptor.class), "TraceIDInterceptor must be registered");
+        assertTrue(order.contains(TokenAuthInterceptor.class), "TokenAuthInterceptor must be registered");
+        assertTrue(order.indexOf(TraceIDInterceptor.class) < order.indexOf(TokenAuthInterceptor.class),
+            "TraceIDInterceptor must run first so TokenAuthInterceptor sees the trace header: " + order);
+    }
+
+    @Test
+    @DisplayName("TraceIDInterceptor is not registered when trace ID propagation is disabled")
+    public void traceIdInterceptorOmittedWhenDisabled() {
+        final OkHttpClient client = LDQJdbcDriver
+            .addInterceptors(new OkHttpClient.Builder(), mock(TokenManager.class), false)
+            .build();
+
+        final List<Class<?>> order = client.interceptors().stream()
+            .<Class<?>>map(Object::getClass)
+            .collect(Collectors.toList());
+
+        assertFalse(order.contains(TraceIDInterceptor.class), "TraceIDInterceptor must not be registered: " + order);
+        assertTrue(order.contains(TokenAuthInterceptor.class), "TokenAuthInterceptor must still be registered");
+    }
+
+    @ParameterizedTest(name = "[{index}] {2}")
+    @MethodSource("traceIdEnabledTestCases")
+    public void testTraceIdEnabledProperty(final String value, final boolean expected, final String description) {
+        final Properties info = new Properties();
+        if (value != null) {
+            info.setProperty(WD_TRACE_ID_ENABLED.getKey(), value);
+        }
+
+        assertEquals(expected, LDQJdbcDriver.isTraceIdEnabled(info), description);
+    }
+
+    static Stream<Arguments> traceIdEnabledTestCases() {
+        return Stream.of(
+            Arguments.of(null, true, "unset defaults to enabled"),
+            Arguments.of("", true, "empty defaults to enabled"),
+            Arguments.of("  ", true, "blank defaults to enabled"),
+            Arguments.of("true", true, "explicit true"),
+            Arguments.of(" TRUE ", true, "true ignores case and whitespace"),
+            Arguments.of("false", false, "explicit false"),
+            Arguments.of("FALSE", false, "false is case insensitive"),
+            Arguments.of(" False ", false, "case and whitespace are ignored"),
+            Arguments.of("no", true, "anything other than false stays enabled"),
+            Arguments.of("flase", true, "a typo stays enabled"),
+            Arguments.of("0", true, "0 stays enabled"),
+            Arguments.of("1", true, "1 stays enabled"));
+    }
+
+    @Test
+    @DisplayName("Trace ID property is advertised as an optional driver property with true/false choices")
+    public void traceIdEnabledPropertyIsAdvertised() {
+        final DriverPropertyInfo info = Arrays.stream(new LDQJdbcDriver().getPropertyInfo(
+            VALID_TEST_LDQ_URL,
+            new Properties()))
+            .filter(p -> WD_TRACE_ID_ENABLED.getKey().equals(p.name))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("wd.traceId.enabled is not advertised"));
+
+        assertFalse(info.required);
+        assertEquals(List.of("true", "false"), Arrays.asList(info.choices));
+        assertTrue(info.description.startsWith("[Driver] "), info.description);
     }
 
     @Test

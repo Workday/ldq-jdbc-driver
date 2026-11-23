@@ -3,13 +3,13 @@
 #
 
 [versions]
-ldq-jdbc-driver = "1.1.2"
+ldq-jdbc-driver = "1.2.0"
 java = "11"
 shadow = "9.2.2"
 trino = "476"
 nimbusds = "10.5"
 jackson = "2.21.7"
-bouncycastle = "1.85"
+bouncycastle = "1.86"
 junit = "5.9.0"
 mockito = "5.21.0"
 mockwebserver = "5.3.0"

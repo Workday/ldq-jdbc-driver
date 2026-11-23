@@ -5,6 +5,7 @@
 package com.workday.ldq.jdbc.impl.oauth;
 
 import io.trino.jdbc.$internal.jakarta.annotation.Nonnull;
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
 
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
@@ -29,13 +30,13 @@ final class JwtGrantTokenManagerImpl
     }
 
     @Override
-    public TokenResponse acquireToken() {
+    public TokenResponse acquireToken(@Nullable final String traceId) {
         final String jwtAssertion = OAuth2TokenUtil.createJWTAssertion(this.config);
-        return this.tokenClient.requestToken(jwtAssertion, this.config.getTokenEndpoint());
+        return this.tokenClient.requestToken(jwtAssertion, this.config.getTokenEndpoint(), traceId);
     }
 
     @Override
-    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken) {
+    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken, @Nullable final String traceId) {
         // JWT Bearer grant does not use refresh tokens.
         // Instead, we create a new JWT assertion and get a new access token.
         throw new LDQJdbcDriverRuntimeException(

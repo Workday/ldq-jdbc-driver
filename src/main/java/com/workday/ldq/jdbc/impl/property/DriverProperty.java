@@ -138,6 +138,20 @@ public enum DriverProperty {
         String.class
     ),
 
+    // DRIVER-ONLY PROPERTIES
+
+    /**
+     * Whether requests of a query are tagged with a trace ID (see TraceIDInterceptor).
+     */
+    WD_TRACE_ID_ENABLED(
+        LDQJdbcAuthnConstants.WD_TRACE_ID_ENABLED_KEY,
+        LDQJdbcAuthnConstants.WD_TRACE_ID_ENABLED_DESCRIPTION,
+        PropertyUsage.DRIVER,
+        "true",
+        null,
+        Boolean.class
+    ),
+
     // TRINO-ONLY PROPERTIES
 
     WD_HTTPCLIENT_TIMEOUT(
@@ -212,6 +226,10 @@ public enum DriverProperty {
         return this.usage == PropertyUsage.TRINO;
     }
 
+    public boolean isUsedForDriver() {
+        return this.usage == PropertyUsage.DRIVER;
+    }
+
     /**
      * Get the raw string value without parsing.
      * Useful for Trino properties that expect strings.
@@ -231,7 +249,8 @@ public enum DriverProperty {
      */
     public enum PropertyUsage {
         OAUTH,
-        TRINO
+        TRINO,
+        DRIVER
     }
 
     @Override
