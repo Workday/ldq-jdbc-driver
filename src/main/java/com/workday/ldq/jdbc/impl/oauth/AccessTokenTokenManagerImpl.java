@@ -5,6 +5,7 @@
 package com.workday.ldq.jdbc.impl.oauth;
 
 import io.trino.jdbc.$internal.jakarta.annotation.Nonnull;
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 
 import java.text.ParseException;
 import java.util.Date;
@@ -35,7 +36,7 @@ final class AccessTokenTokenManagerImpl
     }
 
     @Override
-    public TokenResponse acquireToken() {
+    public TokenResponse acquireToken(@Nullable final String traceId) {
         try {
             final Date expiryTime = SignedJWT.parse(this.accessToken).getJWTClaimsSet().getExpirationTime();
             if (expiryTime == null) {
@@ -55,7 +56,7 @@ final class AccessTokenTokenManagerImpl
     }
 
     @Override
-    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken) {
+    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken, @Nullable final String traceId) {
         throw new LDQJdbcDriverRuntimeException(
             "Access token authentication does not support refresh tokens. Supply a new access token and reconnect.");
     }

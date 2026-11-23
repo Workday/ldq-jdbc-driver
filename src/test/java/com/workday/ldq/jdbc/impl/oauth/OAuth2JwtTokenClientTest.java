@@ -9,17 +9,22 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.JWT_ASSERTION_CANN
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.TOKEN_URL_CANNOT_BE_NULL_OR_EMPTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.trino.jdbc.$internal.okhttp3.Interceptor;
+import io.trino.jdbc.$internal.okhttp3.MediaType;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
+import io.trino.jdbc.$internal.okhttp3.Protocol;
 import io.trino.jdbc.$internal.okhttp3.Request;
 import io.trino.jdbc.$internal.okhttp3.Response;
+import io.trino.jdbc.$internal.okhttp3.ResponseBody;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 import org.junit.jupiter.api.AfterAll;
@@ -99,7 +104,7 @@ public class OAuth2JwtTokenClientTest {
         // Since we're using a non-existent URL, it should throw a network exception
         final LDQJdbcDriverRuntimeException exception = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL));
+            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null));
 
         // Verify that the error message indicates a request failure
         assertTrue(exception.getMessage().contains(ACCESS_TOKEN_REQUEST_FAILED_DUE_TO_NETWORK_ERROR));
@@ -109,7 +114,7 @@ public class OAuth2JwtTokenClientTest {
     public void testRequestAccessTokenWithInvalidUrlThrowsException() {
         // Test that the method accepts 2 arguments correctly with invalid URL
         assertThrows(IllegalArgumentException.class,
-            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, INVALID_URL));
+            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, INVALID_URL, null));
     }
 
     @Test
@@ -117,7 +122,7 @@ public class OAuth2JwtTokenClientTest {
         // Test null JWT assertion validation
         final LDQJdbcDriverRuntimeException exception = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.oauth2TokenClient.requestToken(null, TEST_TOKEN_URL)
+            () -> this.oauth2TokenClient.requestToken(null, TEST_TOKEN_URL, null)
         );
 
         assertEquals(JWT_ASSERTION_CANNOT_BE_NULL_OR_EMPTY, exception.getMessage());
@@ -128,7 +133,7 @@ public class OAuth2JwtTokenClientTest {
         // Test null token URL validation
         final LDQJdbcDriverRuntimeException exception = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, null)
+            () -> this.oauth2TokenClient.requestToken(TEST_JWT_ASSERTION, null, null)
         );
 
         assertEquals(TOKEN_URL_CANNOT_BE_NULL_OR_EMPTY, exception.getMessage());
@@ -144,7 +149,9 @@ public class OAuth2JwtTokenClientTest {
         // Create a test client that overrides the requestTokenResponseNode method
         final OAuth2JwtTokenClient testClientWithValidJwt = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl) {
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId) {
                 final ObjectNode response = LDQJdbcAuthnConstants.OBJECT_MAPPER.createObjectNode();
                 response.put("access_token", validJwtToken);
                 return response;
@@ -152,7 +159,7 @@ public class OAuth2JwtTokenClientTest {
         };
 
         // Call the method - this should now succeed and return a BearerAccessToken
-        final BearerAccessToken result = testClientWithValidJwt.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL)
+        final BearerAccessToken result = testClientWithValidJwt.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null)
             .getAccessToken();
 
         // Verify the result
@@ -164,6 +171,50 @@ public class OAuth2JwtTokenClientTest {
         assertNotNull(result.getIdToken(), "ID token should not be null");
         assertNotNull(result.getExpiryTime(), "Expiry time should not be null");
         assertEquals(BearerAccessToken.TYPE_BEARER, result.getType());
+    }
+
+    @Test
+    public void testRequestTokenSendsTraceIdHeaderWhenPresent()
+        throws Exception {
+        final String traceId = "11111111-2222-3333-4444-555555555555";
+        final Request sent = requestTokenAndCaptureRequest(traceId);
+        assertEquals(traceId, sent.header(LDQJdbcAuthnConstants.WD_REQUEST_ID_HEADER));
+    }
+
+    @Test
+    public void testRequestTokenWithNullTraceIdOmitsHeaderAndSucceeds()
+        throws Exception {
+        final Request sent = requestTokenAndCaptureRequest(null);
+        assertNull(sent.header(LDQJdbcAuthnConstants.WD_REQUEST_ID_HEADER));
+    }
+
+    /**
+     * Calls requestToken against a client that answers locally, and returns the HTTP request that was sent.
+     */
+    private Request requestTokenAndCaptureRequest(final String traceId)
+        throws Exception {
+        final String validJwtToken = createValidJwtToken();
+        final AtomicReference<Request> captured = new AtomicReference<>();
+        final OkHttpClient capturingClient = new OkHttpClient.Builder()
+            .addInterceptor(chain -> {
+                captured.set(chain.request());
+                return new Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(ResponseBody.create("{\"access_token\":\"" + validJwtToken + "\"}",
+                        MediaType.parse("application/json")))
+                    .build();
+            })
+            .build();
+
+        final BearerAccessToken result = new OAuth2JwtTokenClient(capturingClient)
+            .requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, traceId)
+            .getAccessToken();
+
+        assertEquals(validJwtToken, result.getToken());
+        return captured.get();
     }
 
     /**
@@ -213,7 +264,7 @@ public class OAuth2JwtTokenClientTest {
 
         while (retryCount <= MAX_RETRIES && result == null) {
             try {
-                result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+                result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null).getAccessToken();
             }
             catch (final LDQJdbcDriverRuntimeException e) {
                 final Throwable cause = e.getCause();
@@ -246,7 +297,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 final int attempt = attemptCount.incrementAndGet();
                 if (attempt <= NUM_TEST_RETRIES) {
@@ -278,7 +331,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 final int attempt = attemptCount.incrementAndGet();
                 if (attempt <= NUM_TEST_RETRIES) {
@@ -310,7 +365,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 final int attempt = attemptCount.incrementAndGet();
                 // Simulate network errors for the first attempt, then success
@@ -346,7 +403,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 attemptCount.incrementAndGet();
                 // Simulate 400 Bad Request - should not retry
@@ -355,7 +414,7 @@ public class OAuth2JwtTokenClientTest {
         };
 
         assertThrows(LDQJdbcDriverRuntimeException.class, () -> {
-            testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+            testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null).getAccessToken();
         });
 
         assertEquals(1, attemptCount.get(), "Should have made only 1 attempt (no retries for 400)");
@@ -371,7 +430,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 attemptCount.incrementAndGet();
                 throw new IOException("HTTP 401 - Unauthorized");
@@ -379,7 +440,7 @@ public class OAuth2JwtTokenClientTest {
         };
 
         assertThrows(LDQJdbcDriverRuntimeException.class, () -> {
-            testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+            testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null).getAccessToken();
         });
 
         assertEquals(1, attemptCount.get(), "Should have made only 1 attempt (no retries for 401)");
@@ -391,7 +452,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 attemptCount.incrementAndGet();
                 throw new IOException("HTTP 429 - Too Many Requests");
@@ -400,7 +463,7 @@ public class OAuth2JwtTokenClientTest {
 
         final LDQJdbcDriverRuntimeException exception = assertThrows(LDQJdbcDriverRuntimeException.class,
             () -> {
-                testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+                testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null).getAccessToken();
             });
 
         assertTrue(exception.getMessage() != null && exception.getMessage().contains("network error"),
@@ -428,7 +491,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl) {
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId) {
                 attemptCount.incrementAndGet();
                 // Success immediately - no retries needed
                 final ObjectNode response = LDQJdbcAuthnConstants.OBJECT_MAPPER.createObjectNode();
@@ -437,7 +502,8 @@ public class OAuth2JwtTokenClientTest {
             }
         };
 
-        final BearerAccessToken result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+        final BearerAccessToken result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null)
+            .getAccessToken();
 
         assertNotNull(result, "Result should not be null");
         assertEquals(1, attemptCount.get(), "Should have made only 1 attempt (no retries needed)");
@@ -452,7 +518,9 @@ public class OAuth2JwtTokenClientTest {
 
         final OAuth2JwtTokenClient testClient = new OAuth2JwtTokenClient(httpClient) {
             @Override
-            protected JsonNode requestTokenResponseNode(final String jwtAssertion, final String tokenUrl)
+            protected JsonNode requestTokenResponseNode(final String jwtAssertion,
+                                                        final String tokenUrl,
+                                                        final String traceId)
                 throws IOException {
                 final int attempt = attemptCount.incrementAndGet();
 
@@ -476,7 +544,7 @@ public class OAuth2JwtTokenClientTest {
 
         while (retryCount <= MAX_RETRIES && result == null) {
             try {
-                result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL).getAccessToken();
+                result = testClient.requestToken(TEST_JWT_ASSERTION, TEST_TOKEN_URL, null).getAccessToken();
             }
             catch (final LDQJdbcDriverRuntimeException e) {
                 final Throwable cause = e.getCause();

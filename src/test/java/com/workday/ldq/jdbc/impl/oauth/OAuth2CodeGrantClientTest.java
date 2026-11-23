@@ -10,6 +10,7 @@ import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.FAILED_TO_PARSE_AC
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.MSG_INVALID_REFRESH_TOKEN;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.NO_ACCESS_TOKEN_FIELD_IN_RESPONSE;
 import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.NO_ACCESS_TOKEN_FOUND_IN_RESPONSE;
+import static com.workday.ldq.jdbc.impl.LDQJdbcAuthnConstants.WD_REQUEST_ID_HEADER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -18,11 +19,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.trino.jdbc.$internal.okhttp3.MediaType;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
+import io.trino.jdbc.$internal.okhttp3.Protocol;
+import io.trino.jdbc.$internal.okhttp3.Request;
+import io.trino.jdbc.$internal.okhttp3.Response;
+import io.trino.jdbc.$internal.okhttp3.ResponseBody;
 
 import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +69,7 @@ class OAuth2CodeGrantClientTest {
     private static final String CLIENT_SECRET = "test-client-secret";
     private static final String REDIRECT_URI = "https://localhost:8888/callback";
     private static final String TEST_CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    private static final String TEST_TRACE_ID = "11111111-2222-3333-4444-555555555555";
     private static final String TEST_REFRESH_TOKEN = "test-refresh-token-12345";
     private static final String NEW_REFRESH_TOKEN = "new-refresh-token-67890";
     private static final String SECRET = "test-secret-key-for-jwt-signing-32-bytes-long"; // gitleaks:allow
@@ -194,7 +203,7 @@ class OAuth2CodeGrantClientTest {
     void testGetTokenUsingRefreshTokenNullRefreshToken() {
         final LDQJdbcDriverRuntimeException exception = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.client.getTokenUsingRefreshToken(null, TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET)
+            () -> this.client.getTokenUsingRefreshToken(null, TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, null)
         );
         assertEquals(MSG_INVALID_REFRESH_TOKEN, exception.getMessage());
     }
@@ -206,7 +215,7 @@ class OAuth2CodeGrantClientTest {
     void testGetTokenUsingRefreshTokenEmptyRefreshToken() {
         final LDQJdbcDriverRuntimeException exception = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.client.getTokenUsingRefreshToken("", TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET)
+            () -> this.client.getTokenUsingRefreshToken("", TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, null)
         );
         assertEquals(MSG_INVALID_REFRESH_TOKEN, exception.getMessage());
     }
@@ -222,7 +231,8 @@ class OAuth2CodeGrantClientTest {
                 TEST_REFRESH_TOKEN,
                 "https://invalid-nonexistent-domain-12345.com/token",
                 CLIENT_ID,
-                CLIENT_SECRET
+                CLIENT_SECRET,
+                null
             )
         );
         assertTrue(exception.getMessage().contains("network error"));
@@ -244,7 +254,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret) {
+                                                                  final String clientSecret,
+                                                                  final String traceId) {
                 return mockResponse;
             }
         };
@@ -252,7 +263,8 @@ class OAuth2CodeGrantClientTest {
             TEST_REFRESH_TOKEN,
             TOKEN_ENDPOINT,
             CLIENT_ID,
-            CLIENT_SECRET
+            CLIENT_SECRET,
+            null
         );
 
         assertNotNull(result, "TokenResponse should not be null");
@@ -280,7 +292,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret) {
+                                                                  final String clientSecret,
+                                                                  final String traceId) {
                 return mockResponse;
             }
         };
@@ -288,7 +301,8 @@ class OAuth2CodeGrantClientTest {
             TEST_REFRESH_TOKEN,
             TOKEN_ENDPOINT,
             CLIENT_ID,
-            CLIENT_SECRET
+            CLIENT_SECRET,
+            null
         );
 
         assertNotNull(result, "TokenResponse should not be null");
@@ -310,7 +324,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret) {
+                                                                  final String clientSecret,
+                                                                  final String traceId) {
                 final ObjectNode response = OBJECT_MAPPER.createObjectNode();
                 response.put("refresh_token", NEW_REFRESH_TOKEN);
                 return response;
@@ -322,7 +337,8 @@ class OAuth2CodeGrantClientTest {
                 TEST_REFRESH_TOKEN,
                 TOKEN_ENDPOINT,
                 CLIENT_ID,
-                CLIENT_SECRET
+                CLIENT_SECRET,
+                null
             )
         );
         assertTrue(exception.getMessage().contains(NO_ACCESS_TOKEN_FIELD_IN_RESPONSE));
@@ -340,7 +356,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret) {
+                                                                  final String clientSecret,
+                                                                  final String traceId) {
                 final ObjectNode response = OBJECT_MAPPER.createObjectNode();
                 response.put("access_token", "");
                 return response;
@@ -352,7 +369,8 @@ class OAuth2CodeGrantClientTest {
                 TEST_REFRESH_TOKEN,
                 TOKEN_ENDPOINT,
                 CLIENT_ID,
-                CLIENT_SECRET
+                CLIENT_SECRET,
+                null
             )
         );
         assertTrue(exception.getMessage().contains(NO_ACCESS_TOKEN_FOUND_IN_RESPONSE));
@@ -369,7 +387,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret) {
+                                                                  final String clientSecret,
+                                                                  final String traceId) {
                 final ObjectNode response = OBJECT_MAPPER.createObjectNode();
                 response.put("access_token", "invalid.jwt.token");
                 return response;
@@ -382,7 +401,8 @@ class OAuth2CodeGrantClientTest {
                 TEST_REFRESH_TOKEN,
                 TOKEN_ENDPOINT,
                 CLIENT_ID,
-                CLIENT_SECRET
+                CLIENT_SECRET,
+                null
             )
         );
         assertTrue(exception.getMessage().contains(FAILED_TO_PARSE_ACCESS_TOKEN_FROM_TOKEN_RESPONSE));
@@ -399,7 +419,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String refreshToken,
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
-                                                                  final String clientSecret)
+                                                                  final String clientSecret,
+                                                                  final String traceId)
                 throws IOException {
                 throw new IOException("HTTP 401 - Unauthorized");
             }
@@ -410,7 +431,8 @@ class OAuth2CodeGrantClientTest {
                 TEST_REFRESH_TOKEN,
                 TOKEN_ENDPOINT,
                 CLIENT_ID,
-                CLIENT_SECRET
+                CLIENT_SECRET,
+                null
             )
         );
         assertTrue(exception.getMessage().contains(ACCESS_TOKEN_REQUEST_FAILED_DUE_TO_NETWORK_ERROR));
@@ -423,7 +445,7 @@ class OAuth2CodeGrantClientTest {
         final LDQJdbcDriverRuntimeException ex = assertThrows(
             LDQJdbcDriverRuntimeException.class,
             () -> this.client.exchangeCodeForTokenResponseWithVerifier(
-                code, TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER));
+                code, TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER, null));
         assertEquals(AUTHORIZATION_CODE_CANNOT_BE_NULL, ex.getMessage());
     }
 
@@ -436,7 +458,8 @@ class OAuth2CodeGrantClientTest {
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
                                                                   final String redirectUri,
-                                                                  final String codeVerifier)
+                                                                  final String codeVerifier,
+                                                                  final String traceId)
                 throws IOException {
                 throw new IOException("connection refused");
             }
@@ -444,7 +467,7 @@ class OAuth2CodeGrantClientTest {
         final LDQJdbcDriverRuntimeException ex = assertThrows(
             LDQJdbcDriverRuntimeException.class,
             () -> testClient.exchangeCodeForTokenResponseWithVerifier(
-                "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER));
+                "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER, null));
         assertEquals(ACCESS_TOKEN_REQUEST_FAILED_DUE_TO_NETWORK_ERROR, ex.getMessage());
     }
 
@@ -461,12 +484,13 @@ class OAuth2CodeGrantClientTest {
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
                                                                   final String redirectUri,
-                                                                  final String codeVerifier) {
+                                                                  final String codeVerifier,
+                                                                  final String traceId) {
                 return mockResponse;
             }
         };
         final TokenResponse result = testClient.exchangeCodeForTokenResponseWithVerifier(
-            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER);
+            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER, null);
 
         assertNotNull(result.getAccessToken());
         assertEquals(validAccessToken, result.getAccessToken().getToken());
@@ -486,13 +510,14 @@ class OAuth2CodeGrantClientTest {
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
                                                                   final String redirectUri,
-                                                                  final String codeVerifier) {
+                                                                  final String codeVerifier,
+                                                                  final String traceId) {
                 return mockResponse;
             }
         };
 
         final TokenResponse result = testClient.exchangeCodeForTokenResponseWithVerifier(
-            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER);
+            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER, null);
 
         assertNotNull(result.getAccessToken());
         assertNull(result.getRefreshToken());
@@ -512,14 +537,15 @@ class OAuth2CodeGrantClientTest {
                                                                   final String tokenEndpoint,
                                                                   final String clientId,
                                                                   final String redirectUri,
-                                                                  final String codeVerifier) {
+                                                                  final String codeVerifier,
+                                                                  final String traceId) {
                 capturedVerifier[0] = codeVerifier;
                 return mockResponse;
             }
         };
 
         testClient.exchangeCodeForTokenResponseWithVerifier(
-            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER);
+            "some-code", TOKEN_ENDPOINT, CLIENT_ID, REDIRECT_URI, TEST_CODE_VERIFIER, null);
 
         assertEquals(TEST_CODE_VERIFIER, capturedVerifier[0]);
     }
@@ -534,7 +560,7 @@ class OAuth2CodeGrantClientTest {
     void testGetTokenUsingRefreshTokenPublicClientInvalidToken(final String refreshToken) {
         final LDQJdbcDriverRuntimeException ex = assertThrows(
             LDQJdbcDriverRuntimeException.class,
-            () -> this.client.getTokenUsingRefreshTokenPublicClient(refreshToken, TOKEN_ENDPOINT, CLIENT_ID));
+            () -> this.client.getTokenUsingRefreshTokenPublicClient(refreshToken, TOKEN_ENDPOINT, CLIENT_ID, null));
         assertEquals(MSG_INVALID_REFRESH_TOKEN, ex.getMessage());
     }
 
@@ -545,7 +571,8 @@ class OAuth2CodeGrantClientTest {
             @Override
             protected JsonNode requestAccessTokenWithRefreshTokenPublicClient(final String refreshToken,
                                                                               final String tokenEndpoint,
-                                                                              final String clientId)
+                                                                              final String clientId,
+                                                                              final String traceId)
                 throws IOException {
                 throw new IOException("connection refused");
             }
@@ -553,7 +580,7 @@ class OAuth2CodeGrantClientTest {
         final LDQJdbcDriverRuntimeException ex = assertThrows(
             LDQJdbcDriverRuntimeException.class,
             () -> testClient.getTokenUsingRefreshTokenPublicClient(
-                TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID));
+                TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID, null));
         assertEquals(ACCESS_TOKEN_REQUEST_FAILED_DUE_TO_NETWORK_ERROR, ex.getMessage());
     }
 
@@ -568,12 +595,13 @@ class OAuth2CodeGrantClientTest {
             @Override
             protected JsonNode requestAccessTokenWithRefreshTokenPublicClient(final String refreshToken,
                                                                               final String tokenEndpoint,
-                                                                              final String clientId) {
+                                                                              final String clientId,
+                                                                              final String traceId) {
                 return mockResponse;
             }
         };
         final TokenResponse result = testClient.getTokenUsingRefreshTokenPublicClient(
-            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID);
+            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID, null);
 
         assertNotNull(result.getAccessToken());
         assertEquals(TEST_REFRESH_TOKEN, result.getRefreshToken(), "Should return original refresh token");
@@ -590,13 +618,14 @@ class OAuth2CodeGrantClientTest {
             @Override
             protected JsonNode requestAccessTokenWithRefreshTokenPublicClient(final String refreshToken,
                                                                               final String tokenEndpoint,
-                                                                              final String clientId) {
+                                                                              final String clientId,
+                                                                              final String traceId) {
                 return mockResponse;
             }
         };
 
         final TokenResponse result = testClient.getTokenUsingRefreshTokenPublicClient(
-            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID);
+            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID, null);
 
         assertNotNull(result.getAccessToken());
         assertEquals(NEW_REFRESH_TOKEN, result.getRefreshToken(), "Should return rotated refresh token");
@@ -623,6 +652,69 @@ class OAuth2CodeGrantClientTest {
         final MACSigner signer = new MACSigner(SECRET);
         signedJWT.sign(signer);
         return signedJWT.serialize();
+    }
+
+    @Test
+    @DisplayName("Code exchange sends the trace ID as x-wd-request-id when present")
+    void testExchangeCodeSendsTraceIdHeaderWhenPresent()
+        throws Exception {
+        final Request sent = captureTokenRequest(testClient -> testClient.exchangeCodeForTokenResponse(
+            "auth-code", TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TEST_TRACE_ID));
+        assertEquals(TEST_TRACE_ID, sent.header(WD_REQUEST_ID_HEADER));
+    }
+
+    @Test
+    @DisplayName("Code exchange with a null trace ID omits the header and still succeeds")
+    void testExchangeCodeWithNullTraceIdOmitsHeader()
+        throws Exception {
+        final Request sent = captureTokenRequest(testClient -> testClient.exchangeCodeForTokenResponse(
+            "auth-code", TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, null));
+        assertNull(sent.header(WD_REQUEST_ID_HEADER));
+    }
+
+    @Test
+    @DisplayName("Refresh sends the trace ID as x-wd-request-id when present")
+    void testRefreshSendsTraceIdHeaderWhenPresent()
+        throws Exception {
+        final Request sent = captureTokenRequest(testClient -> testClient.getTokenUsingRefreshToken(
+            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, TEST_TRACE_ID));
+        assertEquals(TEST_TRACE_ID, sent.header(WD_REQUEST_ID_HEADER));
+    }
+
+    @Test
+    @DisplayName("Refresh with a null trace ID omits the header and still succeeds")
+    void testRefreshWithNullTraceIdOmitsHeader()
+        throws Exception {
+        final Request sent = captureTokenRequest(testClient -> testClient.getTokenUsingRefreshToken(
+            TEST_REFRESH_TOKEN, TOKEN_ENDPOINT, CLIENT_ID, CLIENT_SECRET, null));
+        assertNull(sent.header(WD_REQUEST_ID_HEADER));
+    }
+
+    /**
+     * Runs a token call against a client that answers locally with a valid token response, asserts the call
+     * succeeded, and returns the HTTP request that was sent to the token endpoint.
+     */
+    private Request captureTokenRequest(final Function<OAuth2CodeGrantClient, TokenResponse> call)
+        throws Exception {
+        final String body = OBJECT_MAPPER.writeValueAsString(createTokenResponse(createValidJwtToken(), null));
+        final AtomicReference<Request> captured = new AtomicReference<>();
+        final OkHttpClient capturingClient = new OkHttpClient.Builder()
+            .addInterceptor(chain -> {
+                captured.set(chain.request());
+                return new Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(ResponseBody.create(body, MediaType.parse("application/json")))
+                    .build();
+            })
+            .build();
+
+        final TokenResponse response = call.apply(new OAuth2CodeGrantClient(capturingClient));
+
+        assertNotNull(response.getAccessToken());
+        return captured.get();
     }
 
     /**

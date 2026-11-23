@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -82,12 +83,13 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_REFRESH_TOKEN),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
-            eq(TEST_CLIENT_SECRET)
+            eq(TEST_CLIENT_SECRET),
+            any()
         )).thenReturn(expectedResponse);
 
         // Act
         final TokenResponse actualResponse =
-            this.tokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN);
+            this.tokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN, null);
 
         // Assert
         assertNotNull(actualResponse);
@@ -99,7 +101,8 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_REFRESH_TOKEN),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
-            eq(TEST_CLIENT_SECRET)
+            eq(TEST_CLIENT_SECRET),
+            any()
         );
     }
 
@@ -114,12 +117,13 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_REFRESH_TOKEN),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
-            eq(TEST_CLIENT_SECRET)
+            eq(TEST_CLIENT_SECRET),
+            any()
         )).thenReturn(expectedResponse);
 
         // Act
         final TokenResponse actualResponse =
-            this.tokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN);
+            this.tokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN, null);
 
         // Assert
         assertNotNull(actualResponse);
@@ -135,12 +139,13 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_REFRESH_TOKEN),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
-            eq(TEST_CLIENT_SECRET)
+            eq(TEST_CLIENT_SECRET),
+            any()
         )).thenThrow(new LDQJdbcDriverRuntimeException("Refresh token expired"));
 
         // Act & Assert
         assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.getTokenUsingRefreshToken(
-            TEST_REFRESH_TOKEN));
+            TEST_REFRESH_TOKEN, null));
     }
 
     @Test
@@ -151,12 +156,13 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_REFRESH_TOKEN),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
-            eq(TEST_CLIENT_SECRET)
+            eq(TEST_CLIENT_SECRET),
+            any()
         )).thenThrow(new LDQJdbcDriverRuntimeException("Refresh token revoked"));
 
         // Act & Assert
         assertThrows(LDQJdbcDriverRuntimeException.class, () -> this.tokenManager.getTokenUsingRefreshToken(
-            TEST_REFRESH_TOKEN));
+            TEST_REFRESH_TOKEN, null));
     }
 
     @Test
@@ -177,11 +183,12 @@ class AuthCodeGrantTokenManagerImplTest {
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
             eq(TEST_CLIENT_SECRET),
-            eq(TEST_REDIRECT_URI)
+            eq(TEST_REDIRECT_URI),
+            any()
         )).thenReturn(expectedResponse);
 
         // Act
-        final TokenResponse actualResponse = this.tokenManager.acquireToken();
+        final TokenResponse actualResponse = this.tokenManager.acquireToken(null);
 
         // Assert
         assertNotNull(actualResponse);
@@ -189,9 +196,10 @@ class AuthCodeGrantTokenManagerImplTest {
         assertTrue(actualResponse.hasRefreshToken());
         assertEquals(TEST_REFRESH_TOKEN, actualResponse.getRefreshToken());
 
-        verify(this.mockAuthorizeClient, times(1)).getAuthorizationCode(anyString(), anyString(), anyString());
+        verify(this.mockAuthorizeClient, times(1)).getAuthorizationCode(anyString(), anyString(), anyString()
+        );
         verify(this.mockAuthorizeClient, times(1)).exchangeCodeForTokenResponse(
-            anyString(), anyString(), anyString(), anyString(), anyString()
+            anyString(), anyString(), anyString(), anyString(), anyString(), any()
         );
     }
 

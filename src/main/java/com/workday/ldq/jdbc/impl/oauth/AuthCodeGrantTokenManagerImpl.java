@@ -6,6 +6,7 @@ package com.workday.ldq.jdbc.impl.oauth;
 
 import io.trino.jdbc.$internal.guava.annotations.VisibleForTesting;
 import io.trino.jdbc.$internal.jakarta.annotation.Nonnull;
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
 
 import com.workday.ldq.jdbc.impl.oauth.token.TokenResponse;
@@ -48,7 +49,7 @@ final class AuthCodeGrantTokenManagerImpl
     }
 
     @Override
-    public TokenResponse acquireToken() {
+    public TokenResponse acquireToken(@Nullable final String traceId) {
         final String authorizationCode = this.authorizeClient.getAuthorizationCode(
             this.config.getAuthorizationEndpoint(),
             this.config.getClientId(),
@@ -60,17 +61,19 @@ final class AuthCodeGrantTokenManagerImpl
             this.config.getTokenEndpoint(),
             this.config.getClientId(),
             this.config.getClientSecret(),
-            this.config.getAuthorizationRedirectUrl()
+            this.config.getAuthorizationRedirectUrl(),
+            traceId
         );
     }
 
     @Override
-    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken) {
+    public TokenResponse getTokenUsingRefreshToken(@Nonnull final String refreshToken, @Nullable final String traceId) {
         return this.authorizeClient.getTokenUsingRefreshToken(
             refreshToken,
             this.config.getTokenEndpoint(),
             this.config.getClientId(),
-            this.config.getClientSecret()
+            this.config.getClientSecret(),
+            traceId
         );
     }
 

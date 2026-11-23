@@ -74,8 +74,9 @@ public final class TokenAuthInterceptor
         throws IOException {
         final Request originalRequest = chain.request();
         final Request modifiedRequest = getModifiedRequest(originalRequest);
+        final String traceId = originalRequest.header(TRINO_HEADERS.requestTraceToken());
 
-        final String tokenToUse = getExistingOrRefreshToken();
+        final String tokenToUse = getExistingOrRefreshToken(traceId);
         Response response = proceedWithToken(chain, tokenToUse, modifiedRequest);
 
         // Retry once on 401, to allow failures due to network delays
@@ -87,7 +88,7 @@ public final class TokenAuthInterceptor
                 // ignored
             }
             // Force-refresh and retry. If this response also 401s, we don't retry again.
-            final String refreshedToken = refreshAndCacheToken();
+            final String refreshedToken = refreshAndCacheToken(traceId);
             response = proceedWithToken(chain, refreshedToken, modifiedRequest);
         }
         return response;
@@ -145,15 +146,15 @@ public final class TokenAuthInterceptor
         }
     }
 
-    private String getExistingOrRefreshToken() {
+    private String getExistingOrRefreshToken(final @Nullable String traceId) {
         final TokenResponse cached = this.cachedTokenResponse;
         if (cached != null && isAccessTokenValid(cached.getAccessToken())) {
             return cached.getAccessToken().getToken();
         }
-        return refreshAndCacheToken();
+        return refreshAndCacheToken(traceId);
     }
 
-    private String refreshAndCacheToken() {
+    private String refreshAndCacheToken(final @Nullable String traceId) {
         synchronized (this) {
             // Double-check after acquiring the lock
             if (this.cachedTokenResponse != null &&
@@ -165,8 +166,7 @@ public final class TokenAuthInterceptor
             if (this.cachedTokenResponse != null && this.cachedTokenResponse.hasRefreshToken()) {
                 try {
                     this.cachedTokenResponse = this.tokenManager.getTokenUsingRefreshToken(
-                        this.cachedTokenResponse.getRefreshToken()
-                    );
+                        this.cachedTokenResponse.getRefreshToken(), traceId);
                     return this.cachedTokenResponse.getAccessToken().getToken();
                 }
                 catch (final Exception e) {
@@ -180,7 +180,7 @@ public final class TokenAuthInterceptor
             }
 
             // Fallback: Acquire a new token using the authentication flow
-            this.cachedTokenResponse = this.tokenManager.acquireToken();
+            this.cachedTokenResponse = this.tokenManager.acquireToken(traceId);
             return this.cachedTokenResponse.getAccessToken().getToken();
         }
     }

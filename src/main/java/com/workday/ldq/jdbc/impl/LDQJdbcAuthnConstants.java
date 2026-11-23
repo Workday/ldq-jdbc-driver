@@ -39,6 +39,11 @@ public class LDQJdbcAuthnConstants {
     // HTTP request constants
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String USER_AGENT = "User-Agent";
+    public static final String HTTP_METHOD_POST = "POST";
+
+    // Distributed tracing header constants
+    public static final String WD_REQUEST_ID_HEADER = "x-wd-request-id";
+    public static final String CONTENT_ENCODING_HEADER = "Content-Encoding";
 
     // OAuth2 configuration constants
     public static final String GRANT_TYPE_PARAM = "grant_type";
@@ -77,6 +82,9 @@ public class LDQJdbcAuthnConstants {
      * (for example {@code /dataservice/v1/statement}).
      */
     public static final String LDQ_GATEWAY_PATH_PREFIX = "/dataservice";
+
+    // Trace-ID prefix for LDQ requests
+    public static final String TRACE_ID_PREFIX = "LDQ|";
 
     // Refresh early if the token will expire within this many min
     public static final String EARLY_REFRESH_SKEW_MIN_PROP = "wd.token.early-refresh-skew-min";
@@ -120,9 +128,6 @@ public class LDQJdbcAuthnConstants {
     public static final int BAD_GATEWAY = 502;
     public static final int SERVICE_UNAVAILABLE = 503;
     public static final int GATEWAY_TIMEOUT = 504;
-
-    // HTTP method constants
-    public static final String HTTP_METHOD_POST = "POST";
 
     // Error message constants
     public static final String JWT_ASSERTION_CANNOT_BE_NULL_OR_EMPTY = "JWT assertion cannot be null or empty";
@@ -182,6 +187,9 @@ public class LDQJdbcAuthnConstants {
     public static final String WD_SSL_TRUST_STORE_PATH_DESCRIPTION = "Path to truststore file";
     public static final String WD_AUTH_MODEL_KEY = "wd.authn.authModel";
     public static final String WD_AUTH_MODEL_DESCRIPTION = "Authentication model to be used";
+    public static final String WD_TRACE_ID_ENABLED_KEY = "wd.traceId.enabled";
+    public static final String WD_TRACE_ID_ENABLED_DESCRIPTION =
+        "Tag every request of a query with a trace ID (true or false, default true)";
     public static final String WD_SESSION_PROPERTIES_KEY = "wd.sessionProperties";
     public static final String WD_SESSION_PROPERTIES_DESCRIPTION = "Trino session properties";
     public static final String WD_HTTP_TIMEOUT = "wd.http.timeout";

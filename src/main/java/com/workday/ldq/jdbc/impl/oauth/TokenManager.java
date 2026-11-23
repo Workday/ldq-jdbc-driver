@@ -5,6 +5,7 @@
 package com.workday.ldq.jdbc.impl.oauth;
 
 import io.trino.jdbc.$internal.jakarta.annotation.Nonnull;
+import io.trino.jdbc.$internal.jakarta.annotation.Nullable;
 import io.trino.jdbc.$internal.okhttp3.OkHttpClient;
 
 import com.workday.ldq.jdbc.api.exception.LDQJdbcDriverRuntimeException;
@@ -25,10 +26,11 @@ public interface TokenManager
     /**
      * Acquires a new token response (access token and optional refresh token).
      *
+     * @param traceId trace ID of the Trino query that triggered this token acquisition, or null if unavailable
      * @return TokenResponse containing an access token and optional refresh token
      * @throws LDQJdbcDriverRuntimeException if token acquisition fails
      */
-    TokenResponse acquireToken();
+    TokenResponse acquireToken(@Nullable String traceId);
 
     /**
      * Refreshes using a refresh token to get a new access token.
@@ -37,24 +39,25 @@ public interface TokenManager
      * for example, will throw an exception as it does not use refresh tokens.
      *
      * @param refreshToken The refresh token to use for getting a new access token
+     * @param traceId      trace ID of the Trino query that triggered this refresh, or null if unavailable
      * @return TokenResponse with a new access token and possibly a new refresh token
      * @throws LDQJdbcDriverRuntimeException if refresh fails or is not supported
      */
-    TokenResponse getTokenUsingRefreshToken(@Nonnull String refreshToken);
+    TokenResponse getTokenUsingRefreshToken(@Nonnull String refreshToken, @Nullable String traceId);
 
     /**
      * Acquires an access token using the provided OAuth2 configuration.
      * <p>
      * This method is maintained for backward compatibility. New code should use
-     * {@link #acquireToken()} which returns the full TokenResponse.
+     * {@link #acquireToken(String)} which returns the full TokenResponse.
      *
      * @return Bearer access token
      * @throws LDQJdbcDriverRuntimeException if token acquisition fails
-     * @deprecated Use {@link #acquireToken()} instead
+     * @deprecated Use {@link #acquireToken(String)} instead
      */
     @Deprecated
     default BearerAccessToken acquireAccessToken() {
-        return acquireToken().getAccessToken();
+        return acquireToken(null).getAccessToken();
     }
 
     @Override

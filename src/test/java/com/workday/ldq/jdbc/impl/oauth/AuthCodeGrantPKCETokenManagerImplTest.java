@@ -6,6 +6,7 @@ package com.workday.ldq.jdbc.impl.oauth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -73,7 +74,7 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testAcquireTokenCallsPkceAuthorizationMethod() {
         stubAcquireToken();
 
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
 
         verify(this.mockAuthorizeClient, times(1))
             .getAuthorizationCodeWithPkce(anyString(), anyString(), anyString(), anyString());
@@ -86,12 +87,13 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testAcquireTokenCallsExchangeWithVerifier() {
         stubAcquireToken();
 
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
 
         verify(this.mockAuthorizeClient, times(1))
-            .exchangeCodeForTokenResponseWithVerifier(anyString(), anyString(), anyString(), anyString(), anyString());
+            .exchangeCodeForTokenResponseWithVerifier(anyString(), anyString(), anyString(), anyString(), anyString(),
+                any());
         verify(this.mockAuthorizeClient, never())
-            .exchangeCodeForTokenResponse(anyString(), anyString(), anyString(), anyString(), anyString());
+            .exchangeCodeForTokenResponse(anyString(), anyString(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -99,7 +101,7 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testAcquireTokenPassesConfigToAuthorizationRequest() {
         stubAcquireToken();
 
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
 
         verify(this.mockAuthorizeClient).getAuthorizationCodeWithPkce(
             eq(TEST_AUTH_ENDPOINT),
@@ -114,14 +116,15 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testAcquireTokenPassesConfigToTokenExchange() {
         stubAcquireToken();
 
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
 
         verify(this.mockAuthorizeClient).exchangeCodeForTokenResponseWithVerifier(
             eq(TEST_AUTH_CODE),
             eq(TEST_TOKEN_ENDPOINT),
             eq(TEST_CLIENT_ID),
             eq(TEST_REDIRECT_URI),
-            anyString()
+            anyString(),
+            any()
         );
     }
 
@@ -135,9 +138,10 @@ class AuthCodeGrantPKCETokenManagerImplTest {
         when(this.mockAuthorizeClient.getAuthorizationCodeWithPkce(
             anyString(), anyString(), anyString(), challengeCaptor.capture())).thenReturn(TEST_AUTH_CODE);
         when(this.mockAuthorizeClient.exchangeCodeForTokenResponseWithVerifier(
-            anyString(), anyString(), anyString(), anyString(), verifierCaptor.capture())).thenReturn(tokenResponse);
+            anyString(), anyString(), anyString(), anyString(), verifierCaptor.capture(), any())).thenReturn(
+                tokenResponse);
 
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
 
         final String capturedChallenge = challengeCaptor.getValue();
         final String capturedVerifier = verifierCaptor.getValue();
@@ -154,16 +158,18 @@ class AuthCodeGrantPKCETokenManagerImplTest {
         when(this.mockAuthorizeClient.getAuthorizationCodeWithPkce(
             anyString(), anyString(), anyString(), anyString())).thenReturn(TEST_AUTH_CODE);
         when(this.mockAuthorizeClient.exchangeCodeForTokenResponseWithVerifier(
-            anyString(), anyString(), anyString(), anyString(), verifierCaptor.capture())).thenReturn(tokenResponse);
+            anyString(), anyString(), anyString(), anyString(), verifierCaptor.capture(), any())).thenReturn(
+                tokenResponse);
 
         // Call acquireToken 3 times
-        this.pkceTokenManager.acquireToken();
-        this.pkceTokenManager.acquireToken();
-        this.pkceTokenManager.acquireToken();
+        this.pkceTokenManager.acquireToken(null);
+        this.pkceTokenManager.acquireToken(null);
+        this.pkceTokenManager.acquireToken(null);
 
         // Verify exchangeCodeForTokenResponseWithVerifier was called 3 times
         verify(this.mockAuthorizeClient, times(3))
-            .exchangeCodeForTokenResponseWithVerifier(anyString(), anyString(), anyString(), anyString(), anyString());
+            .exchangeCodeForTokenResponseWithVerifier(anyString(), anyString(), anyString(), anyString(), anyString(),
+                any());
 
         // Verify all 3 captured verifiers are unique
         final List<String> verifiers = verifierCaptor.getAllValues();
@@ -179,9 +185,9 @@ class AuthCodeGrantPKCETokenManagerImplTest {
         when(this.mockAuthorizeClient.getAuthorizationCodeWithPkce(
             anyString(), anyString(), anyString(), anyString())).thenReturn(TEST_AUTH_CODE);
         when(this.mockAuthorizeClient.exchangeCodeForTokenResponseWithVerifier(
-            anyString(), anyString(), anyString(), anyString(), anyString())).thenReturn(expected);
+            anyString(), anyString(), anyString(), anyString(), anyString(), any())).thenReturn(expected);
 
-        final TokenResponse actual = this.pkceTokenManager.acquireToken();
+        final TokenResponse actual = this.pkceTokenManager.acquireToken(null);
 
         assertNotNull(actual);
         assertEquals(TEST_ACCESS_TOKEN, actual.getAccessToken().getToken());
@@ -196,14 +202,15 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testRefreshTokenDelegatesToPublicClientMethod() {
         final TokenResponse expected = createTokenResponse(TEST_ACCESS_TOKEN, TEST_NEW_REFRESH_TOKEN);
         when(this.mockAuthorizeClient.getTokenUsingRefreshTokenPublicClient(
-            eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID))).thenReturn(expected);
+            eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID), any())).thenReturn(expected);
 
-        this.pkceTokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN);
+        this.pkceTokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN, null);
 
         verify(this.mockAuthorizeClient, times(1))
-            .getTokenUsingRefreshTokenPublicClient(eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID));
+            .getTokenUsingRefreshTokenPublicClient(eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID),
+                any());
         verify(this.mockAuthorizeClient, never())
-            .getTokenUsingRefreshToken(anyString(), anyString(), anyString(), anyString());
+            .getTokenUsingRefreshToken(anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -211,14 +218,14 @@ class AuthCodeGrantPKCETokenManagerImplTest {
     void testRefreshTokenPassesConfigValues() {
         final TokenResponse expected = createTokenResponse(TEST_ACCESS_TOKEN, TEST_NEW_REFRESH_TOKEN);
         when(this.mockAuthorizeClient.getTokenUsingRefreshTokenPublicClient(
-            anyString(), anyString(), anyString())).thenReturn(expected);
+            anyString(), anyString(), anyString(), any())).thenReturn(expected);
 
-        final TokenResponse actual = this.pkceTokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN);
+        final TokenResponse actual = this.pkceTokenManager.getTokenUsingRefreshToken(TEST_REFRESH_TOKEN, null);
 
         assertNotNull(actual);
         assertEquals(TEST_ACCESS_TOKEN, actual.getAccessToken().getToken());
         verify(this.mockAuthorizeClient).getTokenUsingRefreshTokenPublicClient(
-            eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID));
+            eq(TEST_REFRESH_TOKEN), eq(TEST_TOKEN_ENDPOINT), eq(TEST_CLIENT_ID), any());
     }
 
     // ==================== Helpers ====================
@@ -228,7 +235,7 @@ class AuthCodeGrantPKCETokenManagerImplTest {
         when(this.mockAuthorizeClient.getAuthorizationCodeWithPkce(
             anyString(), anyString(), anyString(), anyString())).thenReturn(TEST_AUTH_CODE);
         when(this.mockAuthorizeClient.exchangeCodeForTokenResponseWithVerifier(
-            anyString(), anyString(), anyString(), anyString(), anyString())).thenReturn(tokenResponse);
+            anyString(), anyString(), anyString(), anyString(), anyString(), any())).thenReturn(tokenResponse);
     }
 
     private TokenResponse createTokenResponse(final String token, final String refreshToken) {
